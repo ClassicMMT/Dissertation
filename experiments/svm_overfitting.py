@@ -1,11 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.svm import SVC
+from sklearn.svm import LinearSVC
+from sklearn.linear_model import SGDClassifier
 from sklearn.datasets import make_classification
 
-from art.attacks.evasion import DecisionTreeAttack
 from art.estimators.classification import SklearnClassifier
+from art.attacks.evasion import AutoProjectedGradientDescent
+
+from utils import plot_svm
+
 
 # create fake data
 x, y = make_classification(
@@ -13,8 +18,12 @@ x, y = make_classification(
 )
 
 # train model
-classifier = DecisionTreeClassifier()
+classifier = SVC(
+    kernel="rbf",
+    random_state=123,
+)
 classifier.fit(x, y)
+plot_svm(classifier, x, y)
 
 print(accuracy := np.mean(classifier.predict(x) == y))
 
@@ -29,6 +38,7 @@ x2 = x2.flatten()
 region_points = np.vstack((x1, x2)).T
 region_labels = classifier.predict(region_points)
 
+
 # plot data
 plt.scatter(
     region_points[:, 0], region_points[:, 1], c=region_labels, alpha=0.1, marker="s"
@@ -40,7 +50,7 @@ plt.show()
 # Attacks
 index = 1
 art_classifier = SklearnClassifier(model=classifier)
-attack = DecisionTreeAttack(classifier=art_classifier)
+attack = AutoProjectedGradientDescent(art_classifier)
 data_for_attack = x[1, :].reshape((-1, 2))
 adv = attack.generate(data_for_attack)
 adv_prediction = classifier.predict(adv)

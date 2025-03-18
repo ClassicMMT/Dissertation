@@ -21,7 +21,7 @@ x, y = make_classification(
     n_classes=3,
     n_informative=2,
     n_redundant=0,
-    random_state=456,
+    random_state=124,
 )
 
 
@@ -51,7 +51,7 @@ plt.show()
 
 
 # Attacks
-index = 1
+index = 2
 art_classifier = SklearnClassifier(model=classifier)
 attack = DecisionTreeAttack(classifier=art_classifier)
 data_for_attack = x[1, :].reshape((-1, 2))
