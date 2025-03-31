@@ -2,6 +2,24 @@ from sklearn.inspection import DecisionBoundaryDisplay
 import matplotlib.pyplot as plt
 
 
+def ss(original, adversarial):
+    return ((original - adversarial) ** 2).sum(axis=1)
+
+
+def get_limits(x, eps=0.5):
+    """
+    For passing in to the plot svm functions "limits" parameter.
+
+    eps determines the blank boundary around points
+    """
+    return (
+        x.min(axis=0)[0] - eps,
+        x.max(axis=0)[0] + eps,
+        x.min(axis=0)[1] - eps,
+        x.max(axis=0)[1] + eps,
+    )
+
+
 # Taken from: https://scikit-learn.org/stable/auto_examples/svm/plot_svm_kernels.html#sphx-glr-auto-examples-svm-plot-svm-kernels-py
 def plot_svm(
     clf,
@@ -9,20 +27,28 @@ def plot_svm(
     y,
     title="Classifier",
     ax=None,
-    support_vectors=True,
+    support_vectors=False,
     index_attack=(
         None,
         None,
-    ),  # tuple containing row index of original point and attack point
+    ),  # tuple containing row index of original point and attack point vector/array
+    limits=None,
 ):
+    """
+    Plot SVC with decision boundary
+    """
 
     attacked_row_index, attack = index_attack
-    x_min = X.min(axis=0)[0]
-    x_max = X.max(axis=0)[0]
-    y_min = X.min(axis=0)[1]
-    y_max = X.max(axis=0)[1]
+    if limits is None:
+        x_min = X.min(axis=0)[0]
+        x_max = X.max(axis=0)[0]
+        y_min = X.min(axis=0)[1]
+        y_max = X.max(axis=0)[1]
+    else:
+        x_min, x_max, y_min, y_max = limits
 
-    fig, ax = plt.subplots()
+    if ax is None:
+        fig, ax = plt.subplots()
     ax.set(xlim=(x_min, x_max), ylim=(y_min, y_max))
 
     # Plot samples by color and add legend
@@ -43,7 +69,7 @@ def plot_svm(
             zorder=10,
         )
 
-    if attack is not None:
+    if attack is not None and attacked_row_index:
         ax.scatter(
             attack[:, 0],
             attack[:, 1],
@@ -92,6 +118,5 @@ def plot_svm(
     ax.legend(*scatter.legend_elements(), loc="upper right", title="Classes")
     ax.set_title(title)
 
-    # if ax is None:
-    #     plt.show()
-    _ = plt.show()
+    if ax is None:
+        _ = plt.show()
