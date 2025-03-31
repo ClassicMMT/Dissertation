@@ -12,21 +12,48 @@
 
 == Stuff to research
 + when test distribution is different from train
-+ Applicability domain
-+ finding applicability domains with adversarial learning
++ look into bias
++ overfitting
++ adversarial regions
 
 
+== Distance metrics
 
+- Total variation distance (tv distance)
+  - Measures maximum difference between two disributions
+  - Symmetric
+  - Between 0 and 1
+- Hellinger Distance
+  - Symmetric
+  - Between 0 and 1
+  - Good for non-normal distributions
+- Cosine similarity?
+  - can measure distributions in terms of direction
+- Kolmogorov-Smirnov statistic
+  - non-parametric test that measures the distance between the empirical cumulative distibution functions
+- Mahalanobis distance
+  - only to compare single point to a distribution
+- Cramer-von Mises criterion
+  - Symmetric and based on CDFs
 
-=== Questions for joerg
+== Distannce metrics tried
+- Wasserstein Distance (earth mover distance)
+  - non-negative and symmetric
+- Kullback-Leibler Divergence
+  - Not symmetric
+  - Can be infinite
+  - Says its only for exponential families
+- Jensen-Shannon divergence (JS divergence)
+  - Symmetric version of KL divergence
+- Bhattacharyya distance
+  - Symmetric
+  - 0 to infinity, where 0 is identical
 
-+ How does my project differ from the BAARD paper? Thoughts:
+== Questions for Joerg
 
-1. baard proposed a framework to detect adversarial attacks. My project would be using adversarial learning directly to find and isolate the domain?
-2. and to develop a metric/methodology to evaluate a model's performance based on the domain.
+- Can i compare a sample against a fake cdf (cumsum over another sample)? Basically this would be treating one as a distribution. Asking about the KS test: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.kstest.html
 
-look into bias
+== Other stuff
 
-overfitting
-adversarial regions
-
+https://github.com/KatDost/Imitate
+https://dx.doi.org/10.1109/ICDM50108.2020.00115
