@@ -16,6 +16,20 @@
 + overfitting
 + adversarial regions
 
+== New ideas
++ Explore the behaviour of the wasserstein distance. Cases with "fake" attacks, where say only the y coords move but not the x. Cases where both need to move but one shrinks (concave decision boundary). Cases where it expands (convex decision boundary).
++ Try different models
++ what happens if the data is not linearly separable? what if it is?
++ try with more features (no plots) and train/test sets.
++ what happens to the wasserstein distance when the variance is changed?
++ do these points continue to hold when we increase the dimensionality?
++ look into optimal transport
++ Impact of class imbalance on wasserstein distance
+
+== Older ideas
++ You can try to approximate a cdf and see if it works in the distance metrics.
++ You can also try create your own metric.
+
 
 == Distance metrics
 
@@ -36,7 +50,7 @@
 - Cramer-von Mises criterion
   - Symmetric and based on CDFs
 
-== Distannce metrics tried
+== Distance metrics tried
 - Wasserstein Distance (earth mover distance)
   - non-negative and symmetric
 - Kullback-Leibler Divergence
@@ -53,7 +67,9 @@
 
 - Can i compare a sample against a fake cdf (cumsum over another sample)? Basically this would be treating one as a distribution. Asking about the KS test: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.kstest.html
 
+
 == Other stuff
 
 https://github.com/KatDost/Imitate
 https://dx.doi.org/10.1109/ICDM50108.2020.00115
+https://ml.auckland.ac.nz/summer-project-auditing-machine-learning-models-quantifying-reliability-using-adversarial-regions/
