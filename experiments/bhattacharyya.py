@@ -11,7 +11,7 @@ def bhatta_dist(X1, X2, method="continuous", n_steps=200, cov_factor=0.1):
     cov_factor: Only applicable when method="continuous". Also see get_density().
     """
 
-    def get_density(x):
+    def get_density(x, cov_factor):
         # Produces a continuous density function for the data in 'x'. Some benefit may be gained from adjusting the cov_factor.
         density = gaussian_kde(x)
         density.covariance_factor = lambda: cov_factor
@@ -35,16 +35,16 @@ def bhatta_dist(X1, X2, method="continuous", n_steps=200, cov_factor=0.1):
 
     elif method == "hist":
         ###Bin the values into a hardcoded number of bins (This is sensitive to N_BINS)
-        N_BINS = 10
+        n_steps = 10
         # Bin the values:
-        h1 = np.histogram(X1, bins=N_BINS, range=(min(cX), max(cX)), density=True)[0]
-        h2 = np.histogram(X2, bins=N_BINS, range=(min(cX), max(cX)), density=True)[0]
+        h1 = np.histogram(X1, bins=n_steps, range=(min(cX), max(cX)), density=True)[0]
+        h2 = np.histogram(X2, bins=n_steps, range=(min(cX), max(cX)), density=True)[0]
         # Calc coeff from bin densities:
         bht = 0
-        for i in range(N_BINS):
+        for i in range(n_steps):
             p1 = h1[i]
             p2 = h2[i]
-            bht += sqrt(p1 * p2) * (max(cX) - min(cX)) / N_BINS
+            bht += sqrt(p1 * p2) * (max(cX) - min(cX)) / n_steps
 
     elif method == "autohist":
         ###Bin the values into bins automatically set by np.histogram:
@@ -74,7 +74,7 @@ def bhatta_dist(X1, X2, method="continuous", n_steps=200, cov_factor=0.1):
         for x in xs:
             p1 = d1(x)
             p2 = d2(x)
-            bht += sqrt(p1 * p2) * (max(cX) - min(cX)) / n_steps
+            bht += (sqrt(p1 * p2) * (max(cX) - min(cX)) / n_steps).item()
 
     else:
         raise ValueError(
