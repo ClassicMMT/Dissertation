@@ -4,10 +4,16 @@
 
 + shape of the distribution of the distances
 + adversarial regions
-+ detecting overfitting via adversarial examples
++ detecting overfitting via adversarial examples (paper)
 + wild patterns paper from joerg
 + learn what the attacks actually do
 + check the bias paper and other stuff
+
+
+== General issues found
++ Should calculate the wasserstein distance within classes
++ Sometimes the attacks fail to find the decision boundary of the overfit models - in these cases should probably only calculate the wasserstein distance on points which are successful adversarial examples
+
 
 == Wasserstein Distance
 
@@ -103,8 +109,28 @@ Some thoughts on @class_separated_table:
 + *IDEA*: There might be something here where we can split the distances by classes and see if the Wasserstein distance is similar.
   - This will most likely hold for SVMs since they try to find a boundary that separates the points. However, there will most likely be cases where this will fail, where you can keep the boundary the same but move the rest of the distribution for one class away from the boundary. However, this scenario can most likely be mitigated by setting the misclassification penalty to not be infinite.
 
+=== Only successful attacks and predictions
+
+Here we only take the points to compute the distance for when they were initially correctly classified and when the attack was successful.
+
+Here we also restrict the dataset to the different scale as described above. The table we get is the following:
+
+#figure(
+  table(
+    columns: 3,
+    [], [Normal], [Overfit],
+    [Blue points], [6.308], [2.7],
+    [Orange points], [3.775], [0.325],
+  ),
+  caption: [Successful attack + prediction and different scale experiment],
+) <successful_different_scale>
+
+
 === Correlation between Wasserstein and Sum of Squares
 
 
 
+=== Class Imbalance experiment (DO THE SUCCESSFUL ADVERSARIAL POINTS EXPERIMENT FIRST)
+
+For the overfit class, the attacks didn't find the decision boundary because they were so small. It might be worthwhile to relax the parameters and explore different levels of overfitting.
 
