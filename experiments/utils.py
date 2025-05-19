@@ -114,7 +114,13 @@ def plot_attacks(
 
 
 def plot_attacks_svm(
-    x, y, adversarial_normal, adversarial_overfit, normal_model, overfit_model
+    x,
+    y,
+    adversarial_normal,
+    adversarial_overfit,
+    normal_model,
+    overfit_model,
+    title=None,
 ):
     """
     Function producing four plots.
@@ -164,6 +170,8 @@ def plot_attacks_svm(
         ax=ax[1, 1],
         title="Overfit Adv Examples",
     )
+    if title is not None:
+        fig.suptitle(title)
     plt.tight_layout()
     plt.show()
 
