@@ -134,3 +134,4 @@ Here we also restrict the dataset to the different scale as described above. The
 
 For the overfit class, the attacks didn't find the decision boundary because they were so small. It might be worthwhile to relax the parameters and explore different levels of overfitting.
 
+remove 5, 10, 15 ... points and see what happens to the distances between classes.
