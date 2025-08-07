@@ -368,6 +368,99 @@ print(
 
 
 ##### Impact of sample size on wasserstein distance experiment
+# Note: this experiment so far is just a copy of the one from above
+
+np.random.seed(124)
+sample_size = 100
+scaler = StandardScaler()
+
+x1 = np.vstack(
+    (
+        np.random.normal(loc=0, scale=1, size=(sample_size, 1)),
+        np.random.normal(loc=0, scale=1, size=(sample_size, 1)),
+    )
+)
+x2 = np.vstack(
+    (
+        np.random.normal(loc=5, scale=1, size=(sample_size, 1)),
+        np.random.normal(loc=0, scale=1, size=(sample_size, 1)),
+    )
+)
+x = np.hstack((x1, x2))
+y = np.hstack((np.zeros(sample_size), np.ones(sample_size))).astype(int)
+x = scaler.fit_transform(x)
+
+plt.scatter(x[:, 0], x[:, 1], c=y)
+plt.show()
+
+normal = SVC(
+    kernel="rbf",
+    random_state=103,
+)
+
+overfit = SVC(
+    kernel="rbf",
+    random_state=104,
+    gamma=50,
+)
+
+normal.fit(x, y)
+overfit.fit(x, y)
+
+preds_normal = normal.predict(x)
+preds_overfit = overfit.predict(x)
+(get_accuracy(normal.predict(x), y), get_accuracy(normal.predict(x), y))
+
+adversarial_normal = HopSkipJump(SklearnClassifier(model=normal)).generate(x)
+adversarial_overfit = HopSkipJump(SklearnClassifier(model=overfit)).generate(x)
+
+adversarial_y_normal = normal.predict(adversarial_normal)
+adversarial_y_overfit = overfit.predict(adversarial_overfit)
+
+print(
+    "Predictions on adv points - attack failure rate",
+    "\nNormal Accuracy",
+    np.mean(adversarial_y_normal == y).item(),
+    "\nOverfit Accuracy:",
+    np.mean(adversarial_y_overfit == y).item(),
+)
+
+plot_attacks_svm(x, y, adversarial_normal, adversarial_overfit, normal, overfit)
+plot_attacks(x, y, adversarial_normal, adversarial_overfit, normal, overfit)
+
+
+# Attacks which were successful but only where the model got them correct in the first place
+i_normal = (adversarial_y_normal != y) & (y == preds_normal)
+i_overfit = (adversarial_y_overfit != y) & (y == preds_overfit)
+
+wasserstein_distance_nd(x[i_normal, :], adversarial_normal[i_normal, :])
+wasserstein_distance_nd(x[i_overfit, :], adversarial_overfit[i_overfit, :])
+
+# separated by class
+print(
+    "Blue class 0",
+    "\nNormal Distance",
+    wasserstein_distance_nd(
+        x[i_normal & y == 0, :],
+        adversarial_normal[i_normal & y == 0, :],
+    ),
+    "\nOverfit Distance",
+    wasserstein_distance_nd(
+        x[i_overfit & y == 0, :],
+        adversarial_overfit[i_overfit & y == 0, :],
+    ),
+    "\nOrange class 1",
+    "\nNormal Distance",
+    wasserstein_distance_nd(
+        x[i_normal & y == 1, :],
+        adversarial_normal[i_normal & y == 1, :],
+    ),
+    "\nOverfit Distance",
+    wasserstein_distance_nd(
+        x[i_overfit & y == 1, :],
+        adversarial_overfit[i_overfit & y == 1, :],
+    ),
+)
 
 
 ##### Impact of "level of overfitting" experiment
