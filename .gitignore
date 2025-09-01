@@ -1,5 +1,6 @@
 data
 .DS_Store
+trained_models
 
 __pycache__
 
