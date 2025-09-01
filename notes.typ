@@ -73,3 +73,6 @@
 https://github.com/KatDost/Imitate
 https://dx.doi.org/10.1109/ICDM50108.2020.00115
 https://ml.auckland.ac.nz/summer-project-auditing-machine-learning-models-quantifying-reliability-using-adversarial-regions/
+
+Ambra Demontis presentation on adversarial ML:
+* https://www.youtube.com/watch?v=DKWs9lOyiLg
