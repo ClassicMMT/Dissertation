@@ -6,3 +6,4 @@ __pycache__
 
 proposal.pdf
 readings/*
+saved_tensors/*
