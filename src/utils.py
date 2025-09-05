@@ -1,13 +1,17 @@
-import numpy as np
-import random
-import torch
-import os
-
-
 ######################### General Utility Functions #########################
 
 
 def save_model(model, name):
+    """
+    Function to save a trained model.
+
+    model: a PyTorch model inheriting from nn.Module
+    name: the name to save the model as
+    """
+
+    import os
+    import torch
+
     if name[-3:] != ".pt":
         name += ".pt"
     if name in os.listdir("trained_models"):
@@ -28,6 +32,9 @@ def load_model(empty_instance, load_name):
     empty_instance: initialised object of the relevant class
     load_name: the name of the model to load
     """
+
+    import torch
+
     if load_name[-3:] != ".pt":
         load_name += ".pt"
     state_dict = torch.load("trained_models/" + load_name)
@@ -39,6 +46,10 @@ def set_all_seeds(random_state=123):
     """
     Function to set all possible random seeds.
     """
+    import random
+    import numpy as np
+    import torch
+
     random.seed(random_state)
     np.random.seed(random_state)
     torch.manual_seed(random_state)
@@ -51,7 +62,11 @@ def sample(*args, size: float | int = 0.2, random_state=123):
     """
     Samples a `size` proportion of points and returns the sampled points.
     """
-    g = torch.Generator().manual_seed(random_state)
+
+    import torch
+
+    g = set_all_seeds(random_state)
+
     n = len(args[0])
     assert all(
         n == len(arg) for arg in args
@@ -71,6 +86,9 @@ def drop_duplicates(data, *args, dim=0, preserve_order=True):
 
     Supports multiple tensors.
     """
+
+    import numpy as np
+
     n = len(data)
     assert all(len(arg) == n for arg in args), "All tensors must have the same length."
 
@@ -130,6 +148,8 @@ def train_model(
 
 
 def evaluate_model(model, loader, device="mps") -> float:
+    import torch
+
     with torch.no_grad():
         model.eval()
         model.to(device)
