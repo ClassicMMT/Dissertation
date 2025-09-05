@@ -9,6 +9,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import torchvision.transforms as transforms
 from torchvision.datasets import MNIST
 import os
+from src.utils import set_all_seeds
 
 ######################### Dataset Loading Utility Functions #########################
 
@@ -23,7 +24,13 @@ def load_mnist(batch_size=128):
     return (train_loader, test_loader), (train_dataset, test_dataset)
 
 
-def load_spambase(batch_size=128, test_size=0.1, scale=True, random_state=123):
+def load_spambase(
+    batch_size: int = 128,
+    test_size: float = 0.1,
+    scale: bool = True,
+    induce_test_covariate_shift: bool = False,
+    random_state: int = 123,
+):
     """
     Function to load the spambase data.
 
@@ -37,12 +44,11 @@ def load_spambase(batch_size=128, test_size=0.1, scale=True, random_state=123):
         X, y, test_size=test_size, random_state=random_state
     )
 
-    if scale:
-        from sklearn.preprocessing import MinMaxScaler
+    if induce_test_covariate_shift:
+        X_test = induce_covariate_shift(X_test)
 
-        scaler = MinMaxScaler()
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
+    if scale:
+        X_train, X_test = scale_datasets(X_train, X_test)
 
     train_dataset = TensorDataset(
         torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train)
@@ -76,9 +82,7 @@ def load_heloc(batch_size=128, scale=True, directory="data/"):
     X_test = test.drop("RiskPerformance", axis=1)
 
     if scale:
-        scaler = MinMaxScaler()
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
+        X_train, X_test = scale_datasets(X_train, X_test)
 
     # convert response to numeric
     y_train = train["RiskPerformance"]
@@ -98,3 +102,56 @@ def load_heloc(batch_size=128, scale=True, directory="data/"):
     test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
     return (train_loader, test_loader), (train_dataset, test_dataset)
+
+
+######################### Dataset Manipulation Utility Functions #########################
+
+
+def induce_covariate_shift(
+    test_dataset,
+    n_features_to_shift: int = 10,
+    intensity: float = 0.5,
+    random_state: int = 123,
+):
+    """
+    Induces a covariate shift on a test_dataset.
+
+    Note: if using outside of a loading function, remember to set scale=False in the loading function.
+    """
+
+    g = set_all_seeds(random_state)
+
+    X, y = test_dataset.tensors
+    X_shifted = X.clone()
+    n_features = X.shape[1]
+
+    features_to_shift = torch.randperm(n_features, generator=g)[:n_features_to_shift]
+    additive_multiplicative_indicator = (
+        torch.randperm(n_features, generator=g)[:n_features_to_shift] % 2
+    )
+
+    for feature_index, add_or_mul in zip(
+        features_to_shift, additive_multiplicative_indicator
+    ):
+        # additive shift
+        if add_or_mul == 0:
+            shift_amount = intensity * torch.std(X[:, feature_index])
+            X_shifted[:, feature_index] += shift_amount
+
+        # multiplicative shift
+        else:
+            X_shifted[:, feature_index] *= 1 + intensity
+
+    return X_shifted
+
+
+def scale_datasets(data, *args):
+    """
+    Scales one or more datasets.
+
+    The first argument is used to fit the scaler.
+    """
+    scaler = MinMaxScaler()
+    data = scaler.fit_transform(data)
+    args = [scaler.transform(arg) for arg in args]
+    return [data] + args
