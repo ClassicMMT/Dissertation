@@ -2,8 +2,8 @@ import numpy as np
 import torch
 import foolbox as fb
 from src.attacks import attack_model
-from src.datasets import load_spambase
-from src.models import SpamBaseNet
+from src.datasets import load_heloc, load_spambase
+from src.models import HelocNet, SpamBaseNet
 from src.utils import load_model, set_all_seeds, drop_duplicates
 
 device = torch.device("mps")
@@ -15,11 +15,17 @@ model_name = "spambase"
 model = load_model(SpamBaseNet(), load_name=model_name)
 (train_loader, test_loader), (train_dataset, test_dataset) = load_spambase()
 
+# For Heloc
+model_name = "heloc"
+model = load_model(HelocNet(), load_name=model_name)
+(train_loader, test_loader), (train_dataset, test_dataset) = load_heloc()
+
+
 attacks = {
     "FGSM": fb.attacks.fast_gradient_method.LinfFastGradientAttack(),
     "DF_L2": fb.attacks.deepfool.L2DeepFoolAttack(),
     "DF_Linf": fb.attacks.deepfool.LinfDeepFoolAttack(),
-    "CW_L2": fb.attacks.carlini_wagner.L2CarliniWagnerAttack(),
+    # "CW_L2": fb.attacks.carlini_wagner.L2CarliniWagnerAttack(),
     "BIM_Linf": fb.attacks.basic_iterative_method.LinfAdamBasicIterativeAttack(),
 }
 
