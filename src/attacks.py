@@ -1,6 +1,8 @@
+import numpy as np
 import foolbox as fb
 import torch
 import os
+from src.utils import drop_duplicates
 
 
 def attack_model(
@@ -105,3 +107,59 @@ def load_adversarial_examples(
             raise FileNotFoundError("No Examples In This Directory.")
     tensors = torch.load(load_directory + load_name)
     return tensors["adversarial_examples"], tensors["original_labels"]
+
+
+def load_all_adversarial_examples(
+    model_name: str = "",
+    return_attack_and_epsilon: bool = False,
+    device="cpu",
+    load_directory: str = "saved_tensors/",
+):
+    """
+    Loads all pre-generated adversarial examples for a single model.
+
+    Returns (adversarial_examples, original_labels)
+
+    If return_attack_and_epsilon=True:
+        returns (adversarial_examples, original_labels, attack_names, epsilons)
+    """
+
+    relevant_filenames = [
+        filename
+        for filename in os.listdir(load_directory)
+        if filename.split("-")[0] == model_name
+    ]
+
+    adversarial_examples = []
+    original_labels = []
+
+    if return_attack_and_epsilon:
+        attack_identifiers = []
+        epsilons = []
+
+    for filename in relevant_filenames:
+        model_name, attack_name, epsilon, _ = filename.split("-")
+        epsilon = float(epsilon.split("=")[1])
+        adv_examples, labels = load_adversarial_examples(
+            model_name, attack_name, epsilon, load_directory=load_directory
+        )
+        adversarial_examples.append(adv_examples)
+        original_labels.append(labels)
+
+        if return_attack_and_epsilon:
+            attack_name_vector = np.repeat(attack_name, len(adv_examples))
+            epsilon_vector = np.repeat(epsilon, len(adv_examples))
+            attack_identifiers.append(attack_name_vector)
+            epsilons.append(epsilon_vector)
+
+    adversarial_examples = torch.cat(adversarial_examples).to(device)
+    original_labels = torch.cat(original_labels).to(device)
+
+    if return_attack_and_epsilon:
+        attack_identifiers = np.concat(attack_identifiers)
+        epsilons = np.concat(epsilons)
+        return drop_duplicates(
+            adversarial_examples, original_labels, attack_identifiers, epsilons
+        )
+
+    return drop_duplicates(adversarial_examples, original_labels)
