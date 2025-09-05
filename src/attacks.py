@@ -1,16 +1,13 @@
-import numpy as np
-import foolbox as fb
-import torch
-import os
-from src.utils import drop_duplicates
-
-
 def attack_model(
     model, attack, loader, verbose=True, device="mps", epsilons=0.01, bounds=(0, 1)
 ):
     """
     Returns a tuple containing the adversarial examples and their original labels
     """
+
+    import foolbox as fb
+    import torch
+
     model.eval()
     model = fb.PyTorchModel(model, bounds=bounds, device=device)
     adversarial_examples, original_labels = [], []
@@ -53,6 +50,9 @@ def run_multiple_attacks(model, attacks, loader, epsilon, verbose=True, device="
     Note: Only returns successful adversarial examples.
     Also note: returns tensors on CPU
     """
+
+    import torch
+
     all_examples = []
     all_labels = []
     attack_index = []
@@ -89,6 +89,9 @@ def load_adversarial_examples(
     Returns a tuple containing the adversarial examples and their original labels
     """
 
+    import torch
+    import os
+
     load_name = f"{model_name}-{attack_name}-epsilon={epsilon}-adv_examples.pt".lower()
     if load_name not in os.listdir(load_directory):
         pt_filenames = [
@@ -112,6 +115,10 @@ def load_adversarial_examples(
 def load_all_adversarial_examples(
     model_name: str = "",
     return_attack_and_epsilon: bool = False,
+    include_attacks=None,
+    exclude_attacks=None,
+    include_epsilons=None,
+    exclude_epsilons=None,
     device="cpu",
     load_directory: str = "saved_tensors/",
 ):
@@ -124,11 +131,36 @@ def load_all_adversarial_examples(
         returns (adversarial_examples, original_labels, attack_names, epsilons)
     """
 
+    import os
+    import numpy as np
+    from src.utils import drop_duplicates
+    import torch
+
     relevant_filenames = [
-        filename
+        filename.split("-")[:3]
         for filename in os.listdir(load_directory)
         if filename.split("-")[0] == model_name
     ]
+
+    attacks_to_include = np.unique(
+        np.array([attack_name for _, attack_name, _ in relevant_filenames])
+    )
+    epsilons_to_include = np.unique(
+        np.array([float(epsilon.split("=")[1]) for _, _, epsilon in relevant_filenames])
+    )
+
+    # Filter
+    if include_attacks is not None:
+        attacks_to_include = include_attacks
+
+    if exclude_attacks is not None:
+        attacks_to_include = np.setdiff1d(attacks_to_include, exclude_attacks)
+
+    if include_epsilons is not None:
+        epsilons_to_include = include_epsilons
+
+    if exclude_epsilons is not None:
+        epsilons_to_include = np.setdiff1d(epsilons_to_include, exclude_epsilons)
 
     adversarial_examples = []
     original_labels = []
@@ -140,17 +172,20 @@ def load_all_adversarial_examples(
     for filename in relevant_filenames:
         model_name, attack_name, epsilon, _ = filename.split("-")
         epsilon = float(epsilon.split("=")[1])
-        adv_examples, labels = load_adversarial_examples(
-            model_name, attack_name, epsilon, load_directory=load_directory
-        )
-        adversarial_examples.append(adv_examples)
-        original_labels.append(labels)
 
-        if return_attack_and_epsilon:
-            attack_name_vector = np.repeat(attack_name, len(adv_examples))
-            epsilon_vector = np.repeat(epsilon, len(adv_examples))
-            attack_identifiers.append(attack_name_vector)
-            epsilons.append(epsilon_vector)
+        if epsilon in epsilons_to_include and attack_name in attacks_to_include:
+
+            adv_examples, labels = load_adversarial_examples(
+                model_name, attack_name, epsilon, load_directory=load_directory
+            )
+            adversarial_examples.append(adv_examples)
+            original_labels.append(labels)
+
+            if return_attack_and_epsilon:
+                attack_name_vector = np.repeat(attack_name, len(adv_examples))
+                epsilon_vector = np.repeat(epsilon, len(adv_examples))
+                attack_identifiers.append(attack_name_vector)
+                epsilons.append(epsilon_vector)
 
     adversarial_examples = torch.cat(adversarial_examples).to(device)
     original_labels = torch.cat(original_labels).to(device)
