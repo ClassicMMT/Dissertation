@@ -43,6 +43,8 @@ def set_all_seeds(random_state=123):
     np.random.seed(random_state)
     torch.manual_seed(random_state)
     torch.use_deterministic_algorithms(True)
+    g = torch.Generator().manual_seed(random_state)
+    return g
 
 
 def sample(*args, size: float | int = 0.2, random_state=123):
