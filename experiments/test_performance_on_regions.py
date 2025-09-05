@@ -3,8 +3,8 @@ import torch
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix
 from src.utils import drop_duplicates, load_model, set_all_seeds, sample
-from src.datasets import load_spambase
-from src.models import SpamBaseNet
+from src.datasets import load_heloc, load_spambase
+from src.models import HelocNet, SpamBaseNet
 from src.attacks import load_adversarial_examples
 
 device = torch.device("mps")
@@ -12,16 +12,21 @@ random_state = 123
 set_all_seeds(random_state)
 
 # load model
-model_name = "spambase"
-model = load_model(empty_instance=SpamBaseNet(), load_name=model_name)
-(train_loader, test_loader), (train_dataset, test_dataset) = load_spambase()
+# model_name = "spambase"
+# model = load_model(empty_instance=SpamBaseNet(), load_name=model_name)
+# (train_loader, test_loader), (train_dataset, test_dataset) = load_spambase()
+
+model_name = "heloc"
+model = load_model(HelocNet(), load_name=model_name)
+(train_loader, test_loader), (train_dataset, test_dataset) = load_heloc()
+
 
 # Attacks to load
 # attacks = ["bim_linf", "cw_l2", "df_l2", "df_linf", "fgsm"]
-attacks = ["df_linf", "df_l2"]
+attacks = ["bim_linf", "df_l2", "df_linf", "fgsm"]
+# attacks = ["df_linf", "df_l2"]
 # epsilons = [0.01, 0.05, 0.1, 0.15, 0.2]
 
-# attacks = ["fgsm"]
 epsilons = np.linspace(0.001, 0.2, 50).round(3)
 
 # Get all pre-generated adversarial examples
