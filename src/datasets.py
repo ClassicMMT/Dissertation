@@ -1,20 +1,12 @@
-import numpy as np
-import pandas as pd
-import random
-from sklearn.preprocessing import MinMaxScaler
-from ucimlrepo import fetch_ucirepo
-from sklearn.model_selection import train_test_split
-import torch
-from torch.utils.data import TensorDataset, DataLoader
-import torchvision.transforms as transforms
-from torchvision.datasets import MNIST
-import os
-from src.utils import set_all_seeds
-
 ######################### Dataset Loading Utility Functions #########################
 
 
 def load_mnist(batch_size=128):
+
+    from torch.utils.data import DataLoader
+    import torchvision.transforms as transforms
+    from torchvision.datasets import MNIST
+
     transform = transforms.Compose([transforms.ToTensor()])
     train_dataset = MNIST(root="data/", transform=transform, download=False)
     test_dataset = MNIST(root="data/", transform=transform, download=False, train=False)
@@ -37,6 +29,11 @@ def load_spambase(
     See: https://archive.ics.uci.edu/dataset/94/spambase
     """
 
+    import torch
+    from sklearn.model_selection import train_test_split
+    from torch.utils.data import TensorDataset, DataLoader
+    from ucimlrepo import fetch_ucirepo
+
     spambase = fetch_ucirepo(id=94)
     X, y = spambase.data.features.to_numpy(), spambase.data.targets["Class"].to_numpy()
 
@@ -45,7 +42,7 @@ def load_spambase(
     )
 
     if induce_test_covariate_shift:
-        X_test = induce_covariate_shift(X_test)
+        X_test = induce_covariate_shift(X_test, return_tensor_only=True)
 
     if scale:
         X_train, X_test = scale_datasets(X_train, X_test)
@@ -64,6 +61,12 @@ def load_spambase(
 
 
 def load_heloc(batch_size=128, scale=True, directory="data/"):
+
+    import torch
+    from torch.utils.data import TensorDataset, DataLoader
+    import os
+    import pandas as pd
+
     assert "heloc_dataset_v1.csv" in os.listdir(directory), (
         "Dataset not found. Download here:\n"
         + "https://www.kaggle.com/datasets/averkiyoliabev/home-equity-line-of-creditheloc"
@@ -111,6 +114,8 @@ def induce_covariate_shift(
     test_dataset,
     n_features_to_shift: int = 10,
     intensity: float = 0.5,
+    return_tensor_only: bool = False,
+    batch_size: int = 128,
     random_state: int = 123,
 ):
     """
@@ -119,11 +124,16 @@ def induce_covariate_shift(
     Note: if using outside of a loading function, remember to set scale=False in the loading function.
     """
 
+    import torch
+    from src.utils import set_all_seeds
+
     g = set_all_seeds(random_state)
 
     X, y = test_dataset.tensors
     X_shifted = X.clone()
     n_features = X.shape[1]
+
+    n_features_to_shift = min(n_features, n_features_to_shift)
 
     features_to_shift = torch.randperm(n_features, generator=g)[:n_features_to_shift]
     additive_multiplicative_indicator = (
@@ -142,7 +152,15 @@ def induce_covariate_shift(
         else:
             X_shifted[:, feature_index] *= 1 + intensity
 
-    return X_shifted
+    if return_tensor_only:
+        return X_shifted
+
+    from torch.utils.data import TensorDataset, DataLoader
+
+    test_dataset = TensorDataset(X_shifted, y)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size)
+
+    return test_loader, test_dataset
 
 
 def scale_datasets(data, *args):
@@ -151,6 +169,9 @@ def scale_datasets(data, *args):
 
     The first argument is used to fit the scaler.
     """
+
+    from sklearn.preprocessing import MinMaxScaler
+
     scaler = MinMaxScaler()
     data = scaler.fit_transform(data)
     args = [scaler.transform(arg) for arg in args]
