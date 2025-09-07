@@ -2,23 +2,23 @@ import numpy as np
 import torch
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix
-from src.utils import drop_duplicates, load_model, set_all_seeds, sample
+from src.utils import load_model, set_all_seeds, sample
 from src.datasets import load_heloc, load_spambase
 from src.models import HelocNet, SpamBaseNet
-from src.attacks import load_adversarial_examples
+from src.attacks import load_all_adversarial_examples
 
 device = torch.device("mps")
 random_state = 123
 set_all_seeds(random_state)
 
 # load model
-# model_name = "spambase"
-# model = load_model(empty_instance=SpamBaseNet(), load_name=model_name)
-# (train_loader, test_loader), (train_dataset, test_dataset) = load_spambase()
+model_name = "spambase"
+model = load_model(empty_instance=SpamBaseNet(), load_name=model_name)
+(train_loader, test_loader), (train_dataset, test_dataset) = load_spambase()
 
-model_name = "heloc"
-model = load_model(HelocNet(), load_name=model_name)
-(train_loader, test_loader), (train_dataset, test_dataset) = load_heloc()
+# model_name = "heloc"
+# model = load_model(HelocNet(), load_name=model_name)
+# (train_loader, test_loader), (train_dataset, test_dataset) = load_heloc()
 
 
 # Attacks to load
@@ -30,23 +30,12 @@ attacks = ["bim_linf", "df_l2", "df_linf", "fgsm"]
 epsilons = np.linspace(0.001, 0.2, 50).round(3)
 
 # Get all pre-generated adversarial examples
-all_adv_examples = []
-for epsilon in epsilons:
-    for attack_name in attacks:
-        adv_examples, _ = load_adversarial_examples(
-            model_name, attack_name, epsilon, load_directory="saved_tensors/"
-        )
-
-        all_adv_examples.append(adv_examples.to("cpu"))
+all_adv_examples, _ = load_all_adversarial_examples(
+    model_name, include_attacks=attacks, include_epsilons=epsilons
+)
 
 # get original examples
 original_examples = train_dataset.tensors[0]
-
-# combine all adversarial examples
-all_adv_examples = torch.cat(all_adv_examples)
-
-# remove duplicates - there may still be duplicates across the attacks/epsilons
-all_adv_examples = drop_duplicates(all_adv_examples)
 
 # sample adversarial examples to be the same size as original dataset
 # all_adv_examples = sample(
