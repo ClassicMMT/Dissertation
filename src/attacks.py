@@ -169,8 +169,7 @@ def load_all_adversarial_examples(
         attack_identifiers = []
         epsilons = []
 
-    for filename in relevant_filenames:
-        model_name, attack_name, epsilon, _ = filename.split("-")
+    for model_name, attack_name, epsilon in relevant_filenames:
         epsilon = float(epsilon.split("=")[1])
 
         if epsilon in epsilons_to_include and attack_name in attacks_to_include:
