@@ -106,11 +106,51 @@ def drop_duplicates(data, *args, dim=0, preserve_order=True):
     return [data] + args
 
 
+def normalised_mse(X, X2, variances):
+    """
+    Function to compute the normalised MSE.
+
+    X should be the original examples since the variances are calculated from it.
+
+    Note that variances are required to be passed in
+    because the variances need to be computed from the training data
+    """
+    if len(X.shape) > 2:
+        X = X.view(X.shape[0], -1)
+        X2 = X2.view(X2.shape[0], -1)
+    # variances = X.var(dim=0, unbiased=False)
+    n_dim = X.shape[1]
+    mse = (((X - X2) ** 2) / variances).mean(dim=1).mean()
+    return mse.item()
+
+
+def calculate_entropy(x):
+    """
+    Computes the entropy for each example.
+    """
+    import torch
+    import torch.nn.functional as F
+
+    x = x.clone().detach().cpu()
+    if len(x.shape) > 2:
+        x = x.reshape(x.shape[0], -1)
+    probs = F.softmax(x, dim=0)
+    entropy = -(probs * torch.log(probs + 1e-12)).sum(dim=-1)
+    return entropy
+
+
 ######################### Model Related Utility Functions #########################
 
 
 def train_model(
-    model, loader, criterion, optimizer, n_epochs, verbose=True, device="mps"
+    model,
+    loader,
+    criterion,
+    optimizer,
+    n_epochs,
+    verbose=True,
+    return_accuracy=False,
+    device="mps",
 ):
     model.train()
     model.to(device)
@@ -144,6 +184,8 @@ def train_model(
                 + f"Accuracy: {n_correct / n_total:.4f}"
             )
 
+    if return_accuracy:
+        return model, (n_correct / n_total).item()
     return model
 
 
