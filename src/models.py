@@ -35,6 +35,32 @@ class SpamBaseNet(nn.Module):
         return x
 
 
+class GenericNet(nn.Module):
+    def __init__(self, layers, activation="relu"):
+        super().__init__()
+        self.layers = nn.ModuleList(
+            [nn.Linear(inp, out) for inp, out in zip(layers[:-1], layers[1:])]
+        )
+        if activation == "relu":
+            activation = nn.ReLU
+        elif activation == "sigmoid":
+            activation = nn.Sigmoid
+        elif activation == "tanh":
+            activation = nn.Tanh
+        else:
+            raise ValueError("Activation must be: relu | sigmoid | tanh")
+
+        self.activation = activation()
+
+    def forward(self, x):
+        for i, layer in enumerate(self.layers):
+            x = layer(x)
+            # if not the last layer -> apply activation
+            if i != len(self.layers) - 1:
+                x = self.activation(x)
+        return x
+
+
 class MNISTNet(nn.Module):
     def __init__(self):
         super().__init__()
@@ -56,4 +82,40 @@ class MNISTNet(nn.Module):
         x = F.relu(self.bn3(self.fc1(x)))
         x = F.relu(self.bn4(self.fc2(x)))
         x = self.fc3(x)
+        return x
+
+
+class IrisNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(4, 16)
+        self.fc2 = nn.Linear(16, 3)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
+        return x
+
+
+class BloodTransfusionNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(4, 256)
+
+        self.fc15 = nn.Linear(256, 128)
+        self.fc16 = nn.Linear(128, 64)
+
+        self.fc2 = nn.Linear(64, 3)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = F.relu(x)
+
+        x = self.fc15(x)
+        x = F.relu(x)
+        x = self.fc16(x)
+        x = F.relu(x)
+
+        x = self.fc2(x)
         return x
