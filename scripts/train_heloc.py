@@ -8,66 +8,50 @@ from src.utils import (
     evaluate_model,
     save_model,
 )
+import matplotlib.pyplot as plt
 
 
 device = torch.device("mps")
-(train_loader, test_loader), (train_dataset, test_dataset) = load_heloc()
 random_state = 123
 set_all_seeds(random_state)
 
+
+(train_loader, test_loader), (train_dataset, test_dataset) = load_heloc()
 
 # Normal Heloc
 # Achieves 70.69% Training and 76.15% test accuracy
 
 model = HelocNet()
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters())
-n_epochs = 10
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
-model = train_model(
-    model,
-    train_loader,
-    criterion,
-    optimizer,
-    n_epochs=n_epochs,
-    device=device,
-)
+train_accuracies = []
+test_accuracies = []
+epochs = range(1, 101)
 
-train_accuracy = evaluate_model(model, train_loader, device=device)
-test_accuracy = evaluate_model(model, test_loader, device=device)
-print(
-    f"Trained for {n_epochs} epochs."
-    + f"Train accuracy: {train_accuracy*100:.2f}%, "
-    + f"Test accuracy: {test_accuracy*100:.2f}%"
-)
+for epoch in epochs:
+    print(f"Progess: {epoch}")
 
-save_model(model, "heloc")
+    model, train_accuracy = train_model(
+        model,
+        train_loader,
+        criterion,
+        optimizer,
+        n_epochs=1,
+        device=device,
+        verbose=False,
+        return_accuracy=True,
+    )
 
-# OVERFIT Heloc
-# Achieves 90.3% training accuracyand 52.49% test accuracy
+    test_accuracy = evaluate_model(model, test_loader, device=device)
 
-set_all_seeds(random_state)
+    train_accuracies.append(train_accuracy)
+    test_accuracies.append(test_accuracy)
 
-model = HelocNet()
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters())
-n_epochs = 1000
+plt.plot(epochs, train_accuracies, c="red")
+plt.plot(epochs, test_accuracies, c="orange")
+# plt.vlines(epochs, train_accuracies, c="orange")
+plt.legend(["Train", "Test"])
+plt.show()
 
-model = train_model(
-    model,
-    train_loader,
-    criterion,
-    optimizer,
-    n_epochs=n_epochs,
-    device=device,
-)
-
-train_accuracy = evaluate_model(model, train_loader, device=device)
-test_accuracy = evaluate_model(model, test_loader, device=device)
-print(
-    f"Trained for {n_epochs} epochs."
-    + f"Train accuracy: {train_accuracy*100:.2f}%, "
-    + f"Test accuracy: {test_accuracy*100:.2f}%"
-)
-
-save_model(model, "heloc_overfit")
+# save_model(model, "heloc")
