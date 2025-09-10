@@ -1,8 +1,18 @@
 def attack_model(
-    model, attack, loader, verbose=True, device="mps", epsilons=0.01, bounds=(0, 1)
+    model,
+    attack,
+    loader,
+    verbose=True,
+    device="mps",
+    epsilons=0.01,
+    bounds=(0, 1),
+    return_correct_and_adversarial=False,
 ):
     """
-    Returns a tuple containing the adversarial examples and their original labels
+    Returns a tuple containing the adversarial examples and their original labels.
+
+    If return_correct_and_adversarial returns:
+        (adversarial_examples, original_labels, is_correct_and_adversarial)
     """
 
     import foolbox as fb
@@ -11,6 +21,7 @@ def attack_model(
     model.eval()
     model = fb.PyTorchModel(model, bounds=bounds, device=device)
     adversarial_examples, original_labels = [], []
+    is_correct_and_adversarial = []
     for i, (features, labels) in enumerate(loader):
         features, labels = features.to(device), labels.to(device)
 
@@ -19,17 +30,25 @@ def attack_model(
 
         raw, clipped, is_adv = attack(model, features, labels, epsilons=epsilons)
 
-        # extract only those points which were initially predicted successfully
-        # but now are adversarial
-        clipped = clipped[is_originally_correct & is_adv]
-        labels = labels[is_originally_correct & is_adv]
+        if not return_correct_and_adversarial:
+            # extract only those points which were initially predicted successfully
+            # but now are adversarial
+            clipped = clipped[is_originally_correct & is_adv]
+            labels = labels[is_originally_correct & is_adv]
 
         adversarial_examples.append(clipped)
         original_labels.append(labels)
+        is_correct_and_adversarial.append(is_originally_correct & is_adv)
 
         if verbose and i % 10 == 0:
             print(f"Attack Progress: {i/len(loader)*100:.1f}%")
 
+    if return_correct_and_adversarial:
+        return (
+            torch.cat(adversarial_examples),
+            torch.cat(original_labels),
+            torch.cat(is_correct_and_adversarial),
+        )
     return torch.cat(adversarial_examples), torch.cat(original_labels)
 
 
