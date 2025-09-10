@@ -75,7 +75,7 @@ for epoch in range(epochs):
     )
     if (epoch + 1) in epochs_to_plot:
         index = epochs_to_plot.index(epoch + 1)
-        i, j = index % len(axs), index // len(axs)
+        j, i = index % 5, index // 5
         plot_boundary(axs[i, j], model, x, y, device, f"Epochs Trained: {epoch+1}")
 
 plt.tight_layout()
