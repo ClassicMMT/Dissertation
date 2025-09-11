@@ -1,3 +1,9 @@
+"""
+This experiment introduces a covariate shift in the test data and assesses
+if adversarial examples can be used to predict whether the incorrectly classified points
+can be predicted using these examples.
+"""
+
 import torch
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix
