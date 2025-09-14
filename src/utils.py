@@ -124,17 +124,19 @@ def normalised_mse(X, X2, variances):
     return mse.item()
 
 
-def calculate_entropy(x):
+def calculate_entropy(logits):
     """
     Computes the entropy for each example.
+
+    Requires logits from the model.
     """
     import torch
     import torch.nn.functional as F
 
-    x = x.clone().detach().cpu()
-    if len(x.shape) > 2:
-        x = x.reshape(x.shape[0], -1)
-    probs = F.softmax(x, dim=0)
+    logits = logits.clone().detach().cpu()
+    if len(logits.shape) > 2:
+        logits = logits.reshape(logits.shape[0], -1)
+    probs = F.softmax(logits, dim=0)
     entropy = -(probs * torch.log(probs + 1e-12)).sum(dim=-1)
     return entropy
 
@@ -203,3 +205,195 @@ def evaluate_model(model, loader, device="mps") -> float:
             n_total += len(labels)
 
         return n_correct / n_total
+
+
+def plot_boundary(axs, model, x, y, device, title, point_size=None):
+    """
+    Function to plot the decision boundary of a network.
+
+    Data must be 2 column tabular data.
+    """
+    import torch
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    xx, yy = np.meshgrid(
+        np.linspace(x[:, 0].min() - 1, x[:, 0].max() + 1, 200),
+        np.linspace(x[:, 1].min() - 1, x[:, 1].max() + 1, 200),
+    )
+    grid = torch.tensor(np.c_[xx.ravel(), yy.ravel()], dtype=torch.float32).to(device)
+    with torch.no_grad():
+        model.eval()
+        labels = model(grid).argmax(dim=-1).cpu()
+    Z = labels.reshape(xx.shape)
+    axs.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.coolwarm)
+    axs.scatter(
+        x[:, 0], x[:, 1], c=y, edgecolors="k", cmap=plt.cm.coolwarm, s=point_size
+    )
+    axs.set_title(title)
+
+
+def plot_loss_landscape(
+    axs,
+    model,
+    x,
+    y,
+    device,
+    title,
+    loss_fn=None,
+    add_colour_bar=False,
+    colour_limits=(None, None),
+    point_size=None,
+):
+    """
+    Function to plot the loss landscape of a network.
+
+    Data must be 2 column tabular data.
+
+    colour_limits is a tuple of (vmin, vmax) for consistency across multiple plots
+
+    Notes:
+        * loss_fn needs to have reduction="none" so loss is returned per point
+        * set add_colour_bar=True if you want colour bars on the plot
+        * colour_limits is for making the colourbar consistent across multiple plots
+            - however, the colour bar must be created separately.
+            - see "nn_landscapes.py" for how this is done.
+    """
+    import torch
+    import torch.nn.functional as F
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Create a mesh grid
+    xx, yy = np.meshgrid(
+        np.linspace(x[:, 0].min() - 1, x[:, 0].max() + 1, 200),
+        np.linspace(x[:, 1].min() - 1, x[:, 1].max() + 1, 200),
+    )
+    grid = torch.tensor(np.c_[xx.ravel(), yy.ravel()], dtype=torch.float32).to(device)
+
+    with torch.no_grad():
+        model.eval()
+        outputs = model(grid)
+
+        # Get predicted classes for the grid points
+        predicted_classes = outputs.argmax(dim=-1)
+
+        # Calculate loss for each point
+        # Use the predicted class as the "true" label - shows confidence
+        if loss_fn is None:
+            # Default to cross-entropy
+            losses = F.cross_entropy(outputs, predicted_classes, reduction="none")
+        else:
+            losses = loss_fn(outputs, predicted_classes)
+
+    Z = losses.cpu().numpy().reshape(xx.shape)
+
+    # Plot the loss landscape as a heatmap
+    contour = axs.contourf(
+        xx,
+        yy,
+        Z,
+        levels=20,
+        cmap="viridis",
+        alpha=0.7,
+        vmin=colour_limits[0],
+        vmax=colour_limits[1],
+    )
+
+    axs.contour(xx, yy, Z, levels=10, colors="white", alpha=0.3, linewidths=0.5)
+
+    # Plot the actual data points
+    axs.scatter(
+        x[:, 0],
+        x[:, 1],
+        c=y,
+        edgecolors="k",
+        cmap=plt.cm.coolwarm,
+        s=point_size,
+        zorder=5,
+    )
+
+    axs.set_title(title)
+
+    if add_colour_bar:
+        # Add a colorbar to show loss values
+        plt.colorbar(contour, ax=axs, label="Loss")
+
+    return contour
+
+
+def plot_entropy_landscape(
+    axs,
+    model,
+    x,
+    y,
+    device,
+    title,
+    add_colour_bar=False,
+    colour_limits=(None, None),
+    point_size=None,
+    log_entropy=False,
+):
+    """
+    Plot the entropy of predictions across the input space.
+    High entropy = high uncertainty
+
+    colour_limits is a tuple of (vmin, vmax) for consistency across multiple plots
+
+    Notes:
+        * loss_fn needs to have reduction="none" so loss is returned per point
+        * set add_colour_bar=True if you want colour bars on the plot
+        * colour_limits is for making the colourbar consistent across multiple plots
+            - however, the colour bar must be created separately.
+            - see "nn_landscapes.py" for how this is done.
+        * log_entropy will compute the log entropies
+            - useful if the entropies are all very small
+    """
+    import torch
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    xx, yy = np.meshgrid(
+        np.linspace(x[:, 0].min() - 1, x[:, 0].max() + 1, 200),
+        np.linspace(x[:, 1].min() - 1, x[:, 1].max() + 1, 200),
+    )
+    grid = torch.tensor(np.c_[xx.ravel(), yy.ravel()], dtype=torch.float32).to(device)
+
+    with torch.no_grad():
+        model.eval()
+        outputs = model(grid)
+        entropy = calculate_entropy(outputs)
+
+    Z = entropy.cpu().numpy().reshape(xx.shape)
+    if log_entropy:
+        Z = np.log(Z + 1e-12)
+
+    # Plot entropy landscape
+    contour = axs.contourf(
+        xx,
+        yy,
+        Z,
+        levels=20,
+        cmap="plasma",
+        alpha=0.7,
+        vmin=colour_limits[0],
+        vmax=colour_limits[1],
+    )
+    axs.contour(xx, yy, Z, levels=10, colors="white", alpha=0.3, linewidths=0.5)
+
+    # Plot data points
+    axs.scatter(
+        x[:, 0],
+        x[:, 1],
+        c=y,
+        edgecolors="k",
+        cmap=plt.cm.coolwarm,
+        s=point_size,
+        zorder=5,
+    )
+
+    axs.set_title(title)
+    if add_colour_bar:
+        plt.colorbar(contour, ax=axs, label="Entropy (Uncertainty)")
+
+    return contour
