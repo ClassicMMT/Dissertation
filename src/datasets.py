@@ -305,3 +305,45 @@ def scale_datasets(data, *args):
         return data
     args = [scaler.transform(arg) for arg in args]
     return [data] + args
+
+
+######################### Dataset Creating Functions #########################
+
+
+def make_chessboard(
+    n_blocks=5, n_points_in_block=100, variance=0.05, scale=True, random_state=123
+):
+    from src.utils import set_all_seeds
+    from src.datasets import scale_datasets
+    import torch
+
+    g = set_all_seeds(random_state)
+
+    x = []
+    y = []
+
+    for row in range(n_blocks):
+        y_center = row + 0.5
+        for col in range(n_blocks):
+            x_center = col + 0.5
+
+            # generate random data
+            x_temp = torch.randn((n_points_in_block, 2), generator=g)
+
+            # change variance and make x-mean x_center
+            x_temp[:, 0] = x_temp[:, 0] * (variance**0.5) + x_center
+            # change variance and make y-mean y_center
+            x_temp[:, 1] = x_temp[:, 1] * (variance**0.5) + y_center
+
+            # class label
+            y_temp = torch.ones(n_points_in_block) * ((row + col) % 2)
+
+            x.append(x_temp)
+            y.append(y_temp)
+
+    x, y = torch.cat(x), torch.cat(y)
+
+    if scale:
+        x = torch.tensor(scale_datasets(x), dtype=torch.float32)
+
+    return x, y
