@@ -2,6 +2,11 @@
 This experiment introduces a covariate shift in the test data and assesses
 if adversarial examples can be used to predict whether the incorrectly classified points
 can be predicted using these examples.
+
+If you explore this more, here are the resources I found earlier:
+    * https://github.com/facebookresearch/DomainBed
+    * https://github.com/mlfoundations/tableshift
+    * https://tableshift.org/datasets.html
 """
 
 import torch
