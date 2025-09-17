@@ -53,7 +53,7 @@ data2 %>%
 ####################### Boundary Depth Experiment Spambase
 
 
-data <- read_csv("saved_results/boundary_depth_spambase.csv")
+data <- read_csv("saved_results/hidden_depth_spambase.csv")
 
 
 data %>%
