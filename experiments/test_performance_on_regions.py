@@ -1,3 +1,13 @@
+"""
+This file loads the pre-generated adversarial examples
+and trains a knn classifier on the original training data and the adversarial examples.
+
+The idea is that the adversarial examples may lie in a
+space where the points which are misclassified by the model
+also lie, and so proximity to adversarial examples vs. test
+data may be illustrative of test misclassifications.
+"""
+
 import numpy as np
 import torch
 from sklearn.neighbors import KNeighborsClassifier
@@ -30,9 +40,7 @@ attacks = ["bim_linf", "df_l2", "df_linf", "fgsm"]
 epsilons = np.linspace(0.001, 0.2, 50).round(3)
 
 # Get all pre-generated adversarial examples
-all_adv_examples, _ = load_all_adversarial_examples(
-    model_name, include_attacks=attacks, include_epsilons=epsilons
-)
+all_adv_examples, _ = load_all_adversarial_examples(model_name, include_attacks=attacks, include_epsilons=epsilons)
 
 # get original examples
 original_examples = train_dataset.tensors[0]

@@ -1,3 +1,13 @@
+"""
+This experiment generates adversarial examples for a given attacks
+and generates UMAP projection plots for every epsilon.
+
+Each row shows:
+    * The original examples vs. adversarial
+    * The true class labels
+    * The predicted class labels
+"""
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -27,9 +37,7 @@ for epsilon in epsilons:
 
     # Generate attacks
     attack = fb.attacks.basic_iterative_method.LinfAdamBasicIterativeAttack()
-    adversarial_examples, true_labels = attack_model(
-        model, attack=attack, loader=train_loader, epsilons=epsilon
-    )
+    adversarial_examples, true_labels = attack_model(model, attack=attack, loader=train_loader, epsilons=epsilon)
 
     # move examples to cpu
     adversarial_examples = adversarial_examples.to("cpu")
@@ -41,9 +49,7 @@ for epsilon in epsilons:
 
     # combine original data with the adversarial examples
     all_examples = torch.cat((examples, adversarial_examples)).numpy()
-    is_adv = torch.cat(
-        (torch.zeros(len(examples)), torch.ones(len(adversarial_examples)))
-    ).numpy()
+    is_adv = torch.cat((torch.zeros(len(examples)), torch.ones(len(adversarial_examples)))).numpy()
     all_labels = torch.cat((labels, true_labels))
 
     # Predict on all examples
@@ -60,9 +66,7 @@ for epsilon in epsilons:
 
 # Plots of projections coloured by adversarial or normal
 fig, axes = plt.subplots(3, 5, figsize=(25, 15))
-for ax, projection, indicator, epsilon in zip(
-    axes[0], projections, adversarial_indicators, epsilons
-):
+for ax, projection, indicator, epsilon in zip(axes[0], projections, adversarial_indicators, epsilons):
 
     sc = ax.scatter(
         projection[:, 0],
@@ -98,9 +102,7 @@ fig.legend(handles=legend_handles, loc="center right")
 plt.tight_layout(rect=[0, 0, 1, 0.95])
 
 # Plots of projections coloured by predicted labels
-for ax, projection, predicted_class, epsilon in zip(
-    axes[2], projections, predicted_labels, epsilons
-):
+for ax, projection, predicted_class, epsilon in zip(axes[2], projections, predicted_labels, epsilons):
 
     sc = ax.scatter(
         projection[:, 0],

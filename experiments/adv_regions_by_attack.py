@@ -1,3 +1,13 @@
+"""
+This experiment generates adversarial examples for a given attacks
+and generates UMAP projection plots for every epsilon.
+
+Each row shows:
+    * The original examples vs. adversarial
+    * The true class labels
+    * Points coloured by attack
+"""
+
 import numpy as np
 import pandas as pd
 import torch
@@ -66,18 +76,12 @@ for epsilon in epsilons:
 
     # sample 10% of points
     examples, labels = sample(examples, labels, size=0.2)
-    adversarial_examples, true_labels, attack_names = sample(
-        adversarial_examples, true_labels, attack_names, size=0.2
-    )
+    adversarial_examples, true_labels, attack_names = sample(adversarial_examples, true_labels, attack_names, size=0.2)
 
     # combine original data with the adversarial examples
     all_examples = torch.cat((examples, adversarial_examples)).numpy()
-    is_adv = torch.cat(
-        (torch.zeros(len(examples)), torch.ones(len(adversarial_examples)))
-    ).numpy()
-    attack_names = torch.cat(
-        (torch.zeros(len(labels)), attack_names + 1)
-    )  # 0 corresponds to original point
+    is_adv = torch.cat((torch.zeros(len(examples)), torch.ones(len(adversarial_examples)))).numpy()
+    attack_names = torch.cat((torch.zeros(len(labels)), attack_names + 1))  # 0 corresponds to original point
     labels = torch.cat((labels, true_labels))
 
     # Predict on all examples
@@ -96,9 +100,7 @@ for epsilon in epsilons:
 
 # Plots of projections coloured by adversarial or normal
 fig, axes = plt.subplots(3, 5, figsize=(20, 12))
-for ax, projection, indicator, epsilon in zip(
-    axes[0], projections, adversarial_indicators, epsilons
-):
+for ax, projection, indicator, epsilon in zip(axes[0], projections, adversarial_indicators, epsilons):
 
     sc = ax.scatter(
         projection[:, 0],
@@ -144,15 +146,10 @@ colour_map = {
     5: "#619CFF",
 }
 
-colours = [
-    pd.Series(attack_type.int()).apply(lambda x: colour_map[x]).to_numpy()
-    for attack_type in attack_types
-]
+colours = [pd.Series(attack_type.int()).apply(lambda x: colour_map[x]).to_numpy() for attack_type in attack_types]
 
 # Plots of projections coloured by attack_type
-for ax, projection, attack_type, epsilon in zip(
-    axes[2], projections, colours, epsilons
-):
+for ax, projection, attack_type, epsilon in zip(axes[2], projections, colours, epsilons):
 
     sc = ax.scatter(
         projection[:, 0],
@@ -161,10 +158,7 @@ for ax, projection, attack_type, epsilon in zip(
         alpha=0.01,
     )
     ax.set_title(f"Epsilon={epsilon}")
-legend_handles = [
-    mpatches.Patch(color=colour_map[i], label=attack_index_to_name[i])
-    for i in range(len(attacks) + 1)
-]
+legend_handles = [mpatches.Patch(color=colour_map[i], label=attack_index_to_name[i]) for i in range(len(attacks) + 1)]
 # legend_handles = [
 #     mpatches.Patch(color=colour_map[0], label="Original"),
 #     mpatches.Patch(color=colour_map[1], label="BIM"),
