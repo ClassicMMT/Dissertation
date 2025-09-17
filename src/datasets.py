@@ -43,13 +43,22 @@ def load_spambase(
     batch_size: int = 128,
     test_size: float = 0.1,
     scale: bool = True,
+    # covariate shift arguments
     induce_test_covariate_shift: bool = False,
+    covariate_shift_intensity: float = 2.0,
+    covariate_shift_n_features: int = 57,
     random_state: int = 123,
 ):
     """
     Function to load the spambase data.
 
     See: https://archive.ics.uci.edu/dataset/94/spambase
+
+    Notes:
+        * covariate_shift_intensity and covariate_shift_n_features do not do anything unless
+            induce_test_covariate_shift=True.
+        * covariate_shift_intensity controls the the intensity of the covariate shift
+        * covariate_shift_n_features controls the number of features to induce shift in
     """
 
     import torch
@@ -65,7 +74,12 @@ def load_spambase(
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
 
     if induce_test_covariate_shift:
-        X_test = induce_covariate_shift(X_test, return_tensor_only=True)
+        X_test = induce_covariate_shift(
+            X_test,
+            n_features_to_shift=covariate_shift_n_features,
+            intensity=covariate_shift_intensity,
+            random_state=random_state,
+        )
 
     if scale:
         X_train, X_test = scale_datasets(X_train, X_test)
@@ -136,8 +150,8 @@ def load_heloc(
     y_test = y_test.apply(lambda risk: 0 if risk == "Bad" else 1).to_numpy()
 
     # The data was initially integer data, so may need to take that into consideration
-    train_loader, train_dataset = create_loaders(X_train, y_train)
-    test_loader, test_dataset = create_loaders(X_test, y_test)
+    train_loader, train_dataset = create_loaders(X_train, y_train, batch_size=batch_size)
+    test_loader, test_dataset = create_loaders(X_test, y_test, batch_size=batch_size)
 
     return (train_loader, test_loader), (train_dataset, test_dataset)
 
