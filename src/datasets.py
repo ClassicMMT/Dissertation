@@ -25,8 +25,15 @@ def create_loaders(x, y, batch_size, shuffle=True, generator=None):
 
     if isinstance(x, torch.Tensor):
         x = x.clone().detach()
+    else:
+        x = torch.tensor(x, dtype=torch.float32)
 
-    dataset = TensorDataset(torch.tensor(x, dtype=torch.float32), torch.tensor(y))
+    if isinstance(y, torch.Tensor):
+        y = y.clone().detach()
+    else:
+        y = torch.tensor(y)
+
+    dataset = TensorDataset(x, y)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, generator=generator)
 
     return loader, dataset
@@ -262,6 +269,8 @@ def scale_datasets(data, *args):
     scaler = MinMaxScaler()
     data = scaler.fit_transform(data)
     args = [scaler.transform(arg) for arg in args]
+    if len(args) == 0:
+        return data
     return [data] + args
 
 
