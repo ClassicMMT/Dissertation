@@ -15,21 +15,20 @@ from sklearn.metrics import confusion_matrix
 from src.attacks import load_all_adversarial_examples
 from src.models import SpamBaseNet
 from src.utils import load_model, set_all_seeds
-from src.datasets import induce_covariate_shift, load_spambase, scale_datasets
+from src.datasets import induce_covariate_shift, load_spambase, scale_datasets, create_loaders
 
 random_state = 123
 g = set_all_seeds(random_state)
 
 # load data with no scaling
-(train_loader, test_loader), (train_dataset, test_dataset) = load_spambase(
-    scale=False, random_state=random_state
-)
+(train_loader, test_loader), (train_dataset, test_dataset) = load_spambase(scale=False, random_state=random_state)
 model = load_model(SpamBaseNet(), "spambase")
 
 # Induce a covariate shift
-shifted_test_loader, shifted_test_dataset = induce_covariate_shift(
-    test_dataset, n_features_to_shift=57, intensity=0.1, random_state=random_state
-)
+shifted_test_loader, shifted_test_dataset = None, None
+X_test, y_test = test_dataset.tensors
+X_test_shifted = induce_covariate_shift(X_test, n_features_to_shift=57, intensity=0.1, random_state=random_state)
+shifted_test_loader, shifted_test_dataset = create_loaders(X_test_shifted, y_test, batch_size=128, generator=g)
 
 # extract tensors
 shifted_x, shifted_y = shifted_test_dataset.tensors

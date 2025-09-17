@@ -23,13 +23,11 @@ def create_loaders(x, y, batch_size, shuffle=True, generator=None):
     import torch
     from torch.utils.data import DataLoader, TensorDataset
 
-    if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
-        dataset = TensorDataset(x, y)
-    else:
-        dataset = TensorDataset(torch.tensor(x, dtype=torch.float32), torch.tensor(y))
-    loader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=shuffle, generator=generator
-    )
+    if isinstance(x, torch.Tensor):
+        x = x.clone().detach()
+
+    dataset = TensorDataset(torch.tensor(x, dtype=torch.float32), torch.tensor(y))
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, generator=generator)
 
     return loader, dataset
 
@@ -49,7 +47,6 @@ def load_spambase(
 
     import torch
     from sklearn.model_selection import train_test_split
-    from torch.utils.data import TensorDataset, DataLoader
     from ucimlrepo import fetch_ucirepo
     from src.utils import set_all_seeds
 
@@ -58,9 +55,7 @@ def load_spambase(
     spambase = fetch_ucirepo(id=94)
     X, y = spambase.data.features.to_numpy(), spambase.data.targets["Class"].to_numpy()
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
 
     if induce_test_covariate_shift:
         X_test = induce_covariate_shift(X_test, return_tensor_only=True)
@@ -68,22 +63,8 @@ def load_spambase(
     if scale:
         X_train, X_test = scale_datasets(X_train, X_test)
 
-    train_loader, train_dataset = create_loaders(
-        X_train, y_train, batch_size=batch_size, generator=g
-    )
-    test_loader, test_dataset = create_loaders(
-        X_test, y_test, batch_size=batch_size, generator=g
-    )
-
-    # train_dataset = TensorDataset(
-    #     torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train)
-    # )
-    # test_dataset = TensorDataset(
-    #     torch.tensor(X_test, dtype=torch.float32), torch.tensor(y_test)
-    # )
-
-    # train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    # test_loader = DataLoader(test_dataset, batch_size=batch_size)
+    train_loader, train_dataset = create_loaders(X_train, y_train, batch_size=batch_size, generator=g)
+    test_loader, test_dataset = create_loaders(X_test, y_test, batch_size=batch_size, generator=g)
 
     return (train_loader, test_loader), (train_dataset, test_dataset)
 
@@ -148,15 +129,8 @@ def load_heloc(
     y_test = y_test.apply(lambda risk: 0 if risk == "Bad" else 1).to_numpy()
 
     # The data was initially integer data, so may need to take that into consideration
-    train_dataset = TensorDataset(
-        torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train)
-    )
-    test_dataset = TensorDataset(
-        torch.tensor(X_test, dtype=torch.float32), torch.tensor(y_test)
-    )
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size)
+    train_loader, train_dataset = create_loaders(X_train, y_train)
+    test_loader, test_dataset = create_loaders(X_test, y_test)
 
     return (train_loader, test_loader), (train_dataset, test_dataset)
 
@@ -184,12 +158,8 @@ def load_iris(batch_size=120, scale=True, test_size=0.2, random_state=123):
     if scale:
         X_train, X_test = scale_datasets(X_train, X_test)
 
-    train_dataset = TensorDataset(
-        torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train)
-    )
-    test_dataset = TensorDataset(
-        torch.tensor(X_test, dtype=torch.float32), torch.tensor(y_test)
-    )
+    train_dataset = TensorDataset(torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train))
+    test_dataset = TensorDataset(torch.tensor(X_test, dtype=torch.float32), torch.tensor(y_test))
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size)
@@ -221,12 +191,8 @@ def load_blood_transfusion(batch_size=100, scale=True, test_size=0.2, random_sta
     if scale:
         X_train, X_test = scale_datasets(X_train, X_test)
 
-    train_dataset = TensorDataset(
-        torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train)
-    )
-    test_dataset = TensorDataset(
-        torch.tensor(X_test, dtype=torch.float32), torch.tensor(y_test)
-    )
+    train_dataset = TensorDataset(torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train))
+    test_dataset = TensorDataset(torch.tensor(X_test, dtype=torch.float32), torch.tensor(y_test))
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size)
@@ -238,17 +204,17 @@ def load_blood_transfusion(batch_size=100, scale=True, test_size=0.2, random_sta
 
 
 def induce_covariate_shift(
-    test_dataset,
-    n_features_to_shift: int = 10,
+    X,
+    n_features_to_shift: int = None,
     intensity: float = 0.5,
-    return_tensor_only: bool = False,
-    batch_size: int = 128,
     random_state: int = 123,
 ):
     """
     Induces a covariate shift on a test_dataset.
 
-    Note: if using outside of a loading function, remember to set scale=False in the loading function.
+    Note:
+        * if using outside of a loading function, remember to set scale=False in the loading function.
+        * X must be a PyTorch tensor
     """
 
     import torch
@@ -256,20 +222,22 @@ def induce_covariate_shift(
 
     g = set_all_seeds(random_state)
 
-    X, y = test_dataset.tensors
-    X_shifted = X.clone()
+    X_shifted = X.clone().detach()
     n_features = X.shape[1]
 
+    if n_features_to_shift is None:
+        n_features_to_shift = n_features
+
+    # can't shift more features than we have
     n_features_to_shift = min(n_features, n_features_to_shift)
 
+    # randomly select the features to shift
     features_to_shift = torch.randperm(n_features, generator=g)[:n_features_to_shift]
-    additive_multiplicative_indicator = (
-        torch.randperm(n_features, generator=g)[:n_features_to_shift] % 2
-    )
 
-    for feature_index, add_or_mul in zip(
-        features_to_shift, additive_multiplicative_indicator
-    ):
+    # randomly select which features will have additive or multiplicative shift induced
+    additive_multiplicative_indicator = torch.randint(0, 2, (n_features_to_shift,), generator=g)
+
+    for feature_index, add_or_mul in zip(features_to_shift, additive_multiplicative_indicator):
         # additive shift
         if add_or_mul == 0:
             shift_amount = intensity * torch.std(X[:, feature_index])
@@ -279,15 +247,7 @@ def induce_covariate_shift(
         else:
             X_shifted[:, feature_index] *= 1 + intensity
 
-    if return_tensor_only:
-        return X_shifted
-
-    from torch.utils.data import TensorDataset, DataLoader
-
-    test_dataset = TensorDataset(X_shifted, y)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size)
-
-    return test_loader, test_dataset
+    return X_shifted
 
 
 def scale_datasets(data, *args):
@@ -301,8 +261,6 @@ def scale_datasets(data, *args):
 
     scaler = MinMaxScaler()
     data = scaler.fit_transform(data)
-    if len(args) == 0:
-        return data
     args = [scaler.transform(arg) for arg in args]
     return [data] + args
 
@@ -310,9 +268,7 @@ def scale_datasets(data, *args):
 ######################### Dataset Creating Functions #########################
 
 
-def make_chessboard(
-    n_blocks=5, n_points_in_block=100, variance=0.05, scale=True, random_state=123
-):
+def make_chessboard(n_blocks=5, n_points_in_block=100, variance=0.05, scale=True, random_state=123):
     from src.utils import set_all_seeds
     from src.datasets import scale_datasets
     import torch

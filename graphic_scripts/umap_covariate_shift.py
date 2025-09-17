@@ -1,3 +1,8 @@
+"""
+The purpose of this file is to induce a covariate shift in the test distrubition and
+make a comparison plot of how this distribution has changed from the original.
+"""
+
 import umap
 import matplotlib.pyplot as plt
 from src.datasets import induce_covariate_shift, load_spambase, scale_datasets
@@ -8,13 +13,12 @@ set_all_seeds(random_state)
 
 (train_loader, test_loader), (train_dataset, test_dataset) = load_spambase(scale=False)
 
-test_with_induced_shift = induce_covariate_shift(
-    test_dataset, n_features_to_shift=10, intensity=2, random_state=random_state
-)
+X_test, y_test = test_dataset.tensors
+X_train, y_train = train_dataset.tensors
 
-train, test1, test2 = scale_datasets(
-    train_dataset.tensors[0], test_dataset.tensors[0], test_with_induced_shift
-)
+test_with_induced_shift = induce_covariate_shift(X_test, n_features_to_shift=57, intensity=2, random_state=random_state)
+
+train, test1, test2 = scale_datasets(X_train, X_test, test_with_induced_shift)
 
 reducer = umap.UMAP(n_components=2, random_state=random_state, n_jobs=1)
 train_projection = reducer.fit_transform(train)
@@ -44,4 +48,5 @@ plt.scatter(
     # alpha=0.1,
 )
 plt.legend(loc="lower left")
+plt.title("UMAP Projection of Induced Covariate Shift (SpamBase)")
 plt.show()
