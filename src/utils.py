@@ -68,9 +68,7 @@ def sample(*args, size: float | int = 0.2, random_state=123):
     g = set_all_seeds(random_state)
 
     n = len(args[0])
-    assert all(
-        n == len(arg) for arg in args
-    ), "Provided args don't have the same length."
+    assert all(n == len(arg) for arg in args), "Provided args don't have the same length."
     if 0 < size < 1:
         size *= n
     size = int(size)
@@ -136,7 +134,7 @@ def calculate_entropy(logits):
     logits = logits.clone().detach().cpu()
     if len(logits.shape) > 2:
         logits = logits.reshape(logits.shape[0], -1)
-    probs = F.softmax(logits, dim=0)
+    probs = F.softmax(logits, dim=-1)
     entropy = -(probs * torch.log(probs + 1e-12)).sum(dim=-1)
     return entropy
 
@@ -227,9 +225,7 @@ def plot_boundary(axs, model, x, y, device, title, point_size=None):
         labels = model(grid).argmax(dim=-1).cpu()
     Z = labels.reshape(xx.shape)
     axs.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.coolwarm)
-    axs.scatter(
-        x[:, 0], x[:, 1], c=y, edgecolors="k", cmap=plt.cm.coolwarm, s=point_size
-    )
+    axs.scatter(x[:, 0], x[:, 1], c=y, edgecolors="k", cmap=plt.cm.coolwarm, s=point_size)
     axs.set_title(title)
 
 
