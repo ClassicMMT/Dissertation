@@ -47,6 +47,8 @@ def load_spambase(
     induce_test_covariate_shift: bool = False,
     covariate_shift_intensity: float = 2.0,
     covariate_shift_n_features: int = 57,
+    # return (X_train, X_test, y_train, y_test)
+    return_raw: bool = False,
     random_state: int = 123,
 ):
     """
@@ -59,6 +61,7 @@ def load_spambase(
             induce_test_covariate_shift=True.
         * covariate_shift_intensity controls the the intensity of the covariate shift
         * covariate_shift_n_features controls the number of features to induce shift in
+        * setting return_raw=True will return (X_train, X_test, y_train, y_test)
     """
 
     import torch
@@ -72,6 +75,9 @@ def load_spambase(
     X, y = spambase.data.features.to_numpy(), spambase.data.targets["Class"].to_numpy()
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
+
+    if return_raw:
+        return X_train, X_test, y_train, y_test
 
     if induce_test_covariate_shift:
         X_test = induce_covariate_shift(
@@ -243,6 +249,9 @@ def induce_covariate_shift(
 
     g = set_all_seeds(random_state)
 
+    if not isinstance(X, torch.Tensor):
+        X = torch.tensor(X, dtype=torch.float32)
+
     X_shifted = X.clone().detach()
     n_features = X.shape[1]
 
@@ -291,7 +300,9 @@ def scale_datasets(data, *args):
 ######################### Dataset Creating Functions #########################
 
 
-def make_chessboard(n_blocks=5, n_points_in_block=100, variance=0.05, scale=True, random_state=123):
+def make_chessboard(
+    n_blocks=5, n_points_in_block=100, variance=0.05, scale=True, all_different_classes=False, random_state=123
+):
     from src.utils import set_all_seeds
     from src.datasets import scale_datasets
     import torch
@@ -300,6 +311,9 @@ def make_chessboard(n_blocks=5, n_points_in_block=100, variance=0.05, scale=True
 
     x = []
     y = []
+
+    if all_different_classes:
+        class_ = 0
 
     for row in range(n_blocks):
         y_center = row + 0.5
@@ -315,7 +329,11 @@ def make_chessboard(n_blocks=5, n_points_in_block=100, variance=0.05, scale=True
             x_temp[:, 1] = x_temp[:, 1] * (variance**0.5) + y_center
 
             # class label
-            y_temp = torch.ones(n_points_in_block) * ((row + col) % 2)
+            if all_different_classes:
+                y_temp = torch.ones(n_points_in_block) * class_
+                class_ += 1
+            else:
+                y_temp = torch.ones(n_points_in_block) * ((row + col) % 2)
 
             x.append(x_temp)
             y.append(y_temp)
