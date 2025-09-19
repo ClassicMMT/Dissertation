@@ -8,6 +8,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from matplotlib.colors import Normalize
+from matplotlib.ticker import LinearLocator
 import copy
 from src.datasets import create_loaders, make_chessboard
 from src.utils import (
@@ -51,7 +54,9 @@ g = set_all_seeds(random_state)
 # loader, dataset = create_loaders(x, y, batch_size=50, generator=g)
 
 
-x, y = make_chessboard(n_blocks=4)
+# x, y = make_chessboard(n_blocks=2, random_state=random_state)
+x, y = make_chessboard(n_blocks=4, random_state=random_state)
+# x, y = make_chessboard(n_blocks=2, all_different_classes=True, random_state=random_state)
 loader, dataset = create_loaders(x, y, batch_size=128, generator=g)
 
 ############# Stuff that's required for later #############
@@ -67,8 +72,13 @@ grid = torch.tensor(np.c_[xx.ravel(), yy.ravel()], dtype=torch.float32).to(devic
 
 
 # model = GenericNet(layers=[2, 16, 2], activation="relu")
+# model = GenericNet(layers=[2, 256, 2], activation="relu")
 # model = GenericNet(layers=[2, 1024, 256, 2], activation="relu")
-model = GenericNet(layers=[2, 256, 2], activation="relu")
+model = GenericNet(layers=[2, 1024, 512, 256, 128, 2], activation="relu")
+
+# this one is for when there is a chessboard with four classes
+# model = GenericNet(layers=[2, 256, 4], activation="relu")
+
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters())
 
@@ -159,9 +169,24 @@ for index, (epoch, accuracy) in enumerate(zip(epochs_to_plot, accuracies)):
     entropy_contours.append(entropy_contour)
 
 # Making the colour bar
-fig.colorbar(loss_contours[0], ax=axs[1, -1], label="Loss", shrink=0.8)
+
+
+# For loss colorbar
+loss_norm = Normalize(vmin=loss_min.item(), vmax=loss_max.item())
+loss_sm = cm.ScalarMappable(norm=loss_norm, cmap="viridis")  # use same cmap as in plot_loss_landscape
+loss_sm.set_array([])
+fig.colorbar(loss_sm, ax=axs[1, -1], label="Loss", shrink=0.8)
+
+# For entropy colorbar
+entropy_norm = Normalize(vmin=entropy_min.item(), vmax=entropy_max.item())
+entropy_sm = cm.ScalarMappable(norm=entropy_norm, cmap="plasma")  # use same cmap as in plot_entropy_landscape
+entropy_sm.set_array([])
 label = "Entropy (log)" if log_entropy else "Entropy"
-fig.colorbar(entropy_contours[0], ax=axs[2, -1], label=label, shrink=0.8)
+cbar = fig.colorbar(entropy_sm, ax=axs[2, -1], label=label, shrink=0.8)
+cbar.locator = LinearLocator(numticks=4)
+cbar.update_ticks()
+
+
 plt.tight_layout()
 for temp in axs:
     for ax in temp:
