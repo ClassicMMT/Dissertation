@@ -1,5 +1,9 @@
 """
-This script generates adversarial examples and creates a graphic.
+This script generates adversarial examples and creates a graphic including:
+
+    * original examples
+    * adversarial perturbations
+    * adversarial examples
 """
 
 import numpy as np
