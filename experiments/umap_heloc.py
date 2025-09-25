@@ -20,9 +20,7 @@ x_train = train_dataset.tensors[0]
 x_test = test_dataset.tensors[0]
 all_data = torch.cat((train_dataset.tensors[0], test_dataset.tensors[0]))
 all_labels = torch.cat((train_dataset.tensors[1], test_dataset.tensors[1]))
-test_indicator = torch.cat(
-    (torch.zeros(len(train_dataset)), torch.ones(len(test_dataset)))
-)
+test_indicator = torch.cat((torch.zeros(len(train_dataset)), torch.ones(len(test_dataset))))
 
 # get predicted labels
 with torch.no_grad():
@@ -31,13 +29,11 @@ with torch.no_grad():
 
 # get projection
 reducer = umap.UMAP(n_components=2, random_state=random_state)
-projection = reducer.fit_transform(all_data, n_jobs=-1)
+projection = reducer.fit_transform(all_data, n_jobs=1)
 
 # ADD Adversarial attacks and see where they live on this space
 
-adversarial_examples, _, attack_names, epsilons = load_all_adversarial_examples(
-    "heloc", return_attack_and_epsilon=True
-)
+adversarial_examples, _, attack_names, epsilons = load_all_adversarial_examples("heloc", return_attack_and_epsilon=True)
 adversarial_sample, attack_names_sample, epsilons_sample = sample(
     adversarial_examples, attack_names, epsilons, size=0.1
 )
@@ -45,9 +41,7 @@ adversarial_projection = reducer.transform(adversarial_sample)
 
 attacks = np.unique(attack_names_sample)
 attack_to_index = {str(attack_name): i for i, attack_name in enumerate(attacks)}
-attack_indices_sample = np.array(
-    list(map(lambda attack: attack_to_index[attack], attack_names_sample))
-)
+attack_indices_sample = np.array(list(map(lambda attack: attack_to_index[attack], attack_names_sample)))
 
 # Plots
 s = 7
@@ -58,9 +52,7 @@ legend0 = axs[0, 0].legend(*scatter0.legend_elements(), title="Point in test")
 axs[0, 0].add_artist(legend0)
 axs[0, 0].set_title("Point in Train/Test")
 
-scatter1 = axs[0, 1].scatter(
-    projection[:, 0], projection[:, 1], c=correct_prediction, s=s
-)
+scatter1 = axs[0, 1].scatter(projection[:, 0], projection[:, 1], c=correct_prediction, s=s)
 legend1 = axs[0, 1].legend(*scatter0.legend_elements(), title="Correctly Classified")
 axs[0, 1].add_artist(legend1)
 axs[0, 1].set_title("Is Correctly Classified")
@@ -89,10 +81,7 @@ scatter3 = axs[1, 1].scatter(
     # alpha=0.01,
     s=s,
 )
-legend_handles = [
-    mpatches.Patch(color=colour_map[attack_to_index[attack]], label=attack)
-    for attack in attacks
-]
+legend_handles = [mpatches.Patch(color=colour_map[attack_to_index[attack]], label=attack) for attack in attacks]
 axs[1, 1].legend(handles=legend_handles, title="Attack")
 axs[1, 1].set_xlim(xlim)
 axs[1, 1].set_ylim(ylim)
