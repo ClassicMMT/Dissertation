@@ -16,8 +16,6 @@ These points are then combined with the adversarial examples and a knn is traine
 
 A neural network is also trained, although the results of this are worse than the knn
 
-IDEAS:
-    * This could be extended with the entropy experiment - adversarial examples have much lower entropy than normal ones (higher confidence)
 """
 
 import numpy as np
@@ -105,9 +103,7 @@ adversarial_examples = torch.cat(adversarial_examples)
 train_data = train_dataset.tensors[0]
 correct_data = train_data[correct_points]
 # sampling the data so there are not as many true examples
-correct_data = sample(
-    correct_data, size=len(adversarial_examples), random_state=random_state
-)
+correct_data = sample(correct_data, size=len(adversarial_examples), random_state=random_state)
 uncertain_data = train_data[uncertain_points]
 incorrect_data = train_data[incorrect_points]
 labels = torch.cat(
