@@ -1,3 +1,155 @@
+######################### Utility Classes #########################
+import torch
+
+
+class KNNDensity:
+    """
+    Computes the normalised density for the given points.
+
+    The density is computed as follows.
+        1. The distance between every point and its nearest n_neighbours is computed to find the scaling range
+        2. Given a new (test) point, computes the distance and scales it
+
+    The scaling is done using min-max scaling
+    """
+
+    def __init__(self, n_neighbours: int = 5):
+        self.n_neighbours = n_neighbours
+
+    def fit(self, x: torch.Tensor):
+        """
+        Computes the minimum and maximum scaling values for future scaling.
+        """
+        self.x = x
+        distances = torch.tensor([self.compute_average_distance_to_neighbours(x_index=i) for i in range(len(self.x))])
+        self.min_d = distances.min()
+        self.max_d = distances.max()
+        return self
+
+    def predict(self, x: torch.Tensor):
+        """
+        Returns a tensor of shape (x.shape[0],) containing the scaled distances.
+
+        x: a tensor of shape (batch_size, n_features)
+        """
+
+        assert x.shape[1] == self.x.shape[1], "x must have the same n_features as the training data"
+
+        distances = torch.tensor([self.compute_average_distance_to_neighbours(point=point) for point in x])
+        return 1 - (distances - self.min_d) / (self.max_d - self.min_d)
+
+    def compute_average_distance_to_neighbours(self, x_index: int | None = None, point: torch.Tensor | None = None):
+        """
+        Computes the average distance to the nearest n_neighbours.
+
+        Can compute the average for a given x_index or for a new point
+        """
+        if point is None and x_index is None or x_index is not None and point is not None:
+            raise ValueError("Must pass one of x_index or point")
+
+        if point is None:  # then use x_index
+            point = self.x[x_index]
+            k = self.n_neighbours + 1
+        else:
+            k = self.n_neighbours
+
+        # compute all distances
+        distances = ((self.x - point) ** 2).sum(dim=1)
+
+        # compute largest k
+        values, indices = torch.topk(distances, k=k, largest=False, sorted=True)
+
+        if x_index is not None:
+            # remove the point itself (if using x_index)
+            values = values[indices != x_index]
+            indices = indices[indices != x_index]
+
+        # calculate average distance
+        return values.mean().item()
+
+
+class ApproxConvexHull:
+    """
+    Approximates a convex hull using random projections.
+    Works well in high dimensions when the exact convex hull is infeasible.
+
+    Code taken from chatgpt. Relevant citations:
+        * ε-kernels for convex hull approximation
+        * support function approximation via random directions
+        * coresets for convex hulls
+    """
+
+    def __init__(self, n_directions=100):
+        self.n_directions = n_directions
+        self.max_proj = None
+        self.min_proj = None
+        self.directions = None
+
+    def fit(self, x):
+        """
+        Fits the approximate convex hull on the given data.
+        Args:
+            x: (n_samples, n_features) tensor
+        """
+        import torch
+
+        n_features = x.shape[1]
+        # sample random directions (normalize for unit length)
+        directions = torch.randn(self.n_directions, n_features, device=x.device)
+        directions = directions / directions.norm(dim=1, keepdim=True)
+
+        # project points onto directions
+        projections = x @ directions.T
+
+        # record min/max along each direction
+        self.max_proj = projections.max(dim=0).values
+        self.min_proj = projections.min(dim=0).values
+        self.directions = directions
+
+    def predict(self, x):
+        """
+        Returns True if the instance is outside the convex hull approximation,
+        False otherwise.
+        Args:
+            x: (n_samples, n_features) tensor
+        Returns:
+            (n_samples,) boolean tensor
+        """
+        projections = x @ self.directions.T
+        outside_min = projections < self.min_proj
+        outside_max = projections > self.max_proj
+        is_outside = outside_min | outside_max
+        return is_outside.sum(dim=-1) > 0
+
+
+class BoundingBox:
+    """
+    Fits a bounding box on the given data.
+    The bounding box should be fitted on the training data,
+    and predicted on the test/validation data.
+    """
+
+    def __init__(self):
+        self.max = None
+        self.min = None
+
+    def fit(self, x):
+        """
+        Fits the bounding box on the given data.
+        """
+        self.max = x.max(dim=0).values
+        self.min = x.min(dim=0).values
+
+    def predict(self, x):
+        """
+        Returns True if the instance is outside the bounding box
+        or returns False otherwise.
+        returns a tensor of shape (x.shape[0],)
+        """
+        is_outside = (x < self.min) | (x > self.max)
+        return is_outside.sum(dim=-1) > 0
+
+
 ######################### General Utility Functions #########################
 
 
@@ -54,6 +206,8 @@ def set_all_seeds(random_state=123):
     np.random.seed(random_state)
     torch.manual_seed(random_state)
     torch.use_deterministic_algorithms(True)
+    if torch.backends.mps.is_available():
+        torch.mps.manual_seed(random_state)
     g = torch.Generator().manual_seed(random_state)
     return g
 
@@ -122,16 +276,19 @@ def normalised_mse(X, X2, variances):
     return mse.item()
 
 
-def calculate_entropy(logits):
+def calculate_entropy(logits, detach=True):
     """
     Computes the entropy for each example.
 
     Requires logits from the model.
+
+    detach=False will allow backpropogation through this calculation.
     """
     import torch
     import torch.nn.functional as F
 
-    logits = logits.clone().detach().cpu()
+    if detach:
+        logits = logits.clone().detach().cpu()
     if len(logits.shape) > 2:
         logits = logits.reshape(logits.shape[0], -1)
     probs = F.softmax(logits, dim=-1)
@@ -205,19 +362,36 @@ def evaluate_model(model, loader, device="mps") -> float:
         return n_correct / n_total
 
 
-def plot_boundary(axs, model, x, y, device, title, point_size=None):
+######################### Landscape Plotting Utility Functions #########################
+
+
+def plot_boundary(
+    axs, model, x, y, device="mps", title="Boundary", point_size=None, plot_x=None, plot_y=None, colour_map: dict = None
+):
     """
     Function to plot the decision boundary of a network.
 
     Data must be 2 column tabular data.
+
+    Args:
+        plot_x: points to plot
+        plot_y: labels to plot (colours)
+        colour_map: dict object (e.g. {0: "red", 1: "blue"}) including a mapping for all labels
     """
     import torch
     import numpy as np
     import matplotlib.pyplot as plt
 
+    # calculate padding
+    x0_range = x[:, 0].max() - x[:, 0].min()
+    x1_range = x[:, 1].max() - x[:, 1].min()
+    x0_padding = x0_range * 0.05
+    x1_padding = x1_range * 0.05
+
+    # Create a mesh grid
     xx, yy = np.meshgrid(
-        np.linspace(x[:, 0].min() - 1, x[:, 0].max() + 1, 200),
-        np.linspace(x[:, 1].min() - 1, x[:, 1].max() + 1, 200),
+        np.linspace(x[:, 0].min() - x0_padding, x[:, 0].max() + x0_padding, 200),
+        np.linspace(x[:, 1].min() - x1_padding, x[:, 1].max() + x1_padding, 200),
     )
     grid = torch.tensor(np.c_[xx.ravel(), yy.ravel()], dtype=torch.float32).to(device)
     with torch.no_grad():
@@ -225,7 +399,17 @@ def plot_boundary(axs, model, x, y, device, title, point_size=None):
         labels = model(grid).argmax(dim=-1).cpu()
     Z = labels.reshape(xx.shape)
     axs.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.coolwarm)
-    axs.scatter(x[:, 0], x[:, 1], c=y, edgecolors="k", cmap=plt.cm.coolwarm, s=point_size)
+    if plot_x is None and plot_y is None:
+        plot_x = x
+        plot_y = y
+
+    if isinstance(colour_map, dict):
+        c = [colour_map[int(x)] for x in plot_y]
+        cmap = None
+    else:
+        c = plot_y
+        cmap = plt.cm.coolwarm
+    axs.scatter(plot_x[:, 0], plot_x[:, 1], c=c, edgecolors="k", cmap=cmap, s=point_size)
     axs.set_title(title)
 
 
@@ -234,12 +418,15 @@ def plot_loss_landscape(
     model,
     x,
     y,
-    device,
-    title,
+    device="mps",
+    title="Loss",
     loss_fn=None,
     add_colour_bar=False,
     colour_limits=(None, None),
     point_size=None,
+    plot_x=None,
+    plot_y=None,
+    colour_map=None,
 ):
     """
     Function to plot the loss landscape of a network.
@@ -248,22 +435,35 @@ def plot_loss_landscape(
 
     colour_limits is a tuple of (vmin, vmax) for consistency across multiple plots
 
+    Args:
+        plot_x: points to plot
+        plot_y: labels to plot (colours)
+        colour_map: dict object (e.g. {0: "red", 1: "blue"}) including a mapping for all labels
+
     Notes:
         * loss_fn needs to have reduction="none" so loss is returned per point
         * set add_colour_bar=True if you want colour bars on the plot
         * colour_limits is for making the colourbar consistent across multiple plots
             - however, the colour bar must be created separately.
             - see "nn_landscapes.py" for how this is done.
+        * if not None, plot_x, plot_y are used for the scatterplot.
     """
     import torch
     import torch.nn.functional as F
     import numpy as np
     import matplotlib.pyplot as plt
 
+    # calculate padding
+    x0_range = x[:, 0].max() - x[:, 0].min()
+    x1_range = x[:, 1].max() - x[:, 1].min()
+
+    x0_padding = x0_range * 0.05
+    x1_padding = x1_range * 0.05
+
     # Create a mesh grid
     xx, yy = np.meshgrid(
-        np.linspace(x[:, 0].min() - 1, x[:, 0].max() + 1, 200),
-        np.linspace(x[:, 1].min() - 1, x[:, 1].max() + 1, 200),
+        np.linspace(x[:, 0].min() - x0_padding, x[:, 0].max() + x0_padding, 200),
+        np.linspace(x[:, 1].min() - x1_padding, x[:, 1].max() + x1_padding, 200),
     )
     grid = torch.tensor(np.c_[xx.ravel(), yy.ravel()], dtype=torch.float32).to(device)
 
@@ -299,12 +499,23 @@ def plot_loss_landscape(
     axs.contour(xx, yy, Z, levels=10, colors="white", alpha=0.3, linewidths=0.5)
 
     # Plot the actual data points
+    if plot_x is None and plot_y is None:
+        plot_x = x
+        plot_y = y
+
+    if isinstance(colour_map, dict):
+        c = [colour_map[int(x)] for x in plot_y]
+        cmap = None
+    else:
+        c = plot_y
+        cmap = plt.cm.coolwarm
+
     axs.scatter(
-        x[:, 0],
-        x[:, 1],
-        c=y,
+        plot_x[:, 0],
+        plot_x[:, 1],
+        c=c,
         edgecolors="k",
-        cmap=plt.cm.coolwarm,
+        cmap=cmap,
         s=point_size,
         zorder=5,
     )
@@ -323,21 +534,27 @@ def plot_entropy_landscape(
     model,
     x,
     y,
-    device,
-    title,
+    device="mps",
+    title="Entropy",
     add_colour_bar=False,
     colour_limits=(None, None),
     point_size=None,
     log_entropy=False,
+    plot_x=None,
+    plot_y=None,
+    colour_map=None,
 ):
     """
     Plot the entropy of predictions across the input space.
     High entropy = high uncertainty
 
-    colour_limits is a tuple of (vmin, vmax) for consistency across multiple plots
+    Args:
+        colour_limits: a tuple of (vmin, vmax) for consistency across multiple plots
+        plot_x: points to plot
+        plot_y: labels to plot (colours)
+        colour_map: dict object (e.g. {0: "red", 1: "blue"}) including a mapping for all labels
 
     Notes:
-        * loss_fn needs to have reduction="none" so loss is returned per point
         * set add_colour_bar=True if you want colour bars on the plot
         * colour_limits is for making the colourbar consistent across multiple plots
             - however, the colour bar must be created separately.
@@ -349,9 +566,16 @@ def plot_entropy_landscape(
     import numpy as np
     import matplotlib.pyplot as plt
 
+    x0_range = x[:, 0].max() - x[:, 0].min()
+    x1_range = x[:, 1].max() - x[:, 1].min()
+
+    x0_padding = x0_range * 0.05
+    x1_padding = x1_range * 0.05
+
+    # Create a mesh grid
     xx, yy = np.meshgrid(
-        np.linspace(x[:, 0].min() - 1, x[:, 0].max() + 1, 200),
-        np.linspace(x[:, 1].min() - 1, x[:, 1].max() + 1, 200),
+        np.linspace(x[:, 0].min() - x0_padding, x[:, 0].max() + x0_padding, 200),
+        np.linspace(x[:, 1].min() - x1_padding, x[:, 1].max() + x1_padding, 200),
     )
     grid = torch.tensor(np.c_[xx.ravel(), yy.ravel()], dtype=torch.float32).to(device)
 
@@ -378,12 +602,23 @@ def plot_entropy_landscape(
     axs.contour(xx, yy, Z, levels=10, colors="white", alpha=0.3, linewidths=0.5)
 
     # Plot data points
+    if plot_x is None and plot_y is None:
+        plot_x = x
+        plot_y = y
+
+    if isinstance(colour_map, dict):
+        c = [colour_map[int(x)] for x in plot_y]
+        cmap = None
+    else:
+        c = plot_y
+        cmap = plt.cm.coolwarm
+
     axs.scatter(
-        x[:, 0],
-        x[:, 1],
-        c=y,
+        plot_x[:, 0],
+        plot_x[:, 1],
+        c=c,
         edgecolors="k",
-        cmap=plt.cm.coolwarm,
+        cmap=cmap,
         s=point_size,
         zorder=5,
     )
@@ -391,5 +626,94 @@ def plot_entropy_landscape(
     axs.set_title(title)
     if add_colour_bar:
         plt.colorbar(contour, ax=axs, label="Entropy (Uncertainty)")
+
+    return contour
+
+
+def plot_density_landscape(
+    axs,
+    x,
+    y,
+    title="Density",
+    n_neighbours=5,
+    add_colour_bar=False,
+    colour_limits=(0, 1),
+    point_size=None,
+    plot_x=None,
+    plot_y=None,
+    colour_map=None,
+):
+    """
+    Plot the density of points across the training space.
+    high values = more density
+
+    Args:
+        colour_limits: a tuple of (vmin, vmax) for consistency across multiple plots
+        plot_x: points to plot
+        plot_y: labels to plot (colours)
+        colour_map: dict object (e.g. {0: "red", 1: "blue"}) including a mapping for all labels
+
+    """
+    import torch
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    x0_range = x[:, 0].max() - x[:, 0].min()
+    x1_range = x[:, 1].max() - x[:, 1].min()
+
+    x0_padding = x0_range * 0.05
+    x1_padding = x1_range * 0.05
+
+    # Create a mesh grid
+    xx, yy = np.meshgrid(
+        np.linspace(x[:, 0].min() - x0_padding, x[:, 0].max() + x0_padding, 200),
+        np.linspace(x[:, 1].min() - x1_padding, x[:, 1].max() + x1_padding, 200),
+    )
+    grid = torch.tensor(np.c_[xx.ravel(), yy.ravel()], dtype=torch.float32)
+
+    knndensity = KNNDensity(n_neighbours=n_neighbours)
+    knndensity = knndensity.fit(x)
+    densities = knndensity.predict(grid)
+
+    Z = densities.numpy().reshape(xx.shape)
+
+    # Plot density landscape
+    contour = axs.contourf(
+        xx,
+        yy,
+        Z,
+        levels=20,
+        cmap="plasma",
+        alpha=0.7,
+        vmin=colour_limits[0],
+        vmax=colour_limits[1],
+    )
+    axs.contour(xx, yy, Z, levels=10, colors="white", alpha=0.3, linewidths=0.5)
+
+    # Plot data points
+    if plot_x is None and plot_y is None:
+        plot_x = x
+        plot_y = y
+
+    if isinstance(colour_map, dict):
+        c = [colour_map[int(x)] for x in plot_y]
+        cmap = None
+    else:
+        c = plot_y
+        cmap = plt.cm.coolwarm
+
+    axs.scatter(
+        plot_x[:, 0],
+        plot_x[:, 1],
+        c=c,
+        edgecolors="k",
+        cmap=cmap,
+        s=point_size,
+        zorder=5,
+    )
+
+    axs.set_title(title)
+    if add_colour_bar:
+        plt.colorbar(contour, ax=axs, label="Density")
 
     return contour
