@@ -27,16 +27,14 @@ set_all_seeds(random_state)
 device = torch.device("mps")
 
 # Data
-(train_loader, test_loader), (train_dataset, test_dataset) = load_spambase(
-    induce_test_covariate_shift=True
-)
+(train_loader, test_loader), (train_dataset, test_dataset) = load_spambase(induce_test_covariate_shift=True)
 model = load_model(SpamBaseNet(), "spambase").to(device).eval()
 
 adversarial_examples, original_labels, is_correct_and_adversarial = attack_model(
     model,
     # fb.attacks.FGSM(),
-    fb.attacks.basic_iterative_method.LinfAdamBasicIterativeAttack(),
-    # fb.attacks.deepfool.LinfDeepFoolAttack(),
+    # fb.attacks.basic_iterative_method.LinfAdamBasicIterativeAttack(),
+    fb.attacks.deepfool.LinfDeepFoolAttack(),
     train_loader,
     epsilons=0.01,
     verbose=False,
