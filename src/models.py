@@ -36,11 +36,13 @@ class SpamBaseNet(nn.Module):
 
 
 class GenericNet(nn.Module):
-    def __init__(self, layers, activation="relu"):
+    def __init__(self, layers, activation="relu", random_state=123):
         super().__init__()
-        self.layers = nn.ModuleList(
-            [nn.Linear(inp, out) for inp, out in zip(layers[:-1], layers[1:])]
-        )
+        from src.utils import set_all_seeds
+
+        set_all_seeds(random_state)
+
+        self.layers = nn.ModuleList([nn.Linear(inp, out) for inp, out in zip(layers[:-1], layers[1:])])
         if activation == "relu":
             activation = nn.ReLU
         elif activation == "sigmoid":
