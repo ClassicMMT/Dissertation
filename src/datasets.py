@@ -42,7 +42,7 @@ def create_loaders(x, y, batch_size, shuffle=True, generator=None):
 def load_spambase(
     batch_size: int = 128,
     test_size: float = 0.1,
-    scale: bool = True,
+    scale: str = "minmax",
     # covariate shift arguments
     induce_test_covariate_shift: bool = False,
     covariate_shift_intensity: float = 2.0,
@@ -62,6 +62,7 @@ def load_spambase(
         * covariate_shift_intensity controls the the intensity of the covariate shift
         * covariate_shift_n_features controls the number of features to induce shift in
         * setting return_raw=True will return (X_train, X_test, y_train, y_test)
+        * scale = "minmax" | "standard" | "robust"
     """
 
     import torch
@@ -88,7 +89,7 @@ def load_spambase(
         )
 
     if scale:
-        X_train, X_test = scale_datasets(X_train, X_test)
+        X_train, X_test = scale_datasets(X_train, X_test, scaler=scale)
 
     train_loader, train_dataset = create_loaders(X_train, y_train, batch_size=batch_size, generator=g)
     test_loader, test_dataset = create_loaders(X_test, y_test, batch_size=batch_size, generator=g)
@@ -280,20 +281,32 @@ def induce_covariate_shift(
     return X_shifted
 
 
-def scale_datasets(data, *args):
+def scale_datasets(data, *args, scaler="minmax", return_scaler=False):
     """
     Scales one or more datasets.
 
     The first argument is used to fit the scaler.
+
+    scaler = "minmax" | "standard" | "robust"
     """
+    from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 
-    from sklearn.preprocessing import MinMaxScaler
+    assert scaler in ["minmax", "standard", "robust"], "scaler must be one of ('minmax', 'standard', 'robust')"
 
-    scaler = MinMaxScaler()
+    if scaler == "minmax":
+        scaler = MinMaxScaler()
+    elif scaler == "standard":
+        scaler = StandardScaler()
+    elif scaler == "robust":
+        scaler = RobustScaler()
     data = scaler.fit_transform(data)
     args = [scaler.transform(arg) for arg in args]
     if len(args) == 0:
+        if return_scaler:
+            return data, scaler
         return data
+    if return_scaler:
+        return [data] + args, scaler
     return [data] + args
 
 
@@ -301,8 +314,11 @@ def scale_datasets(data, *args):
 
 
 def make_chessboard(
-    n_blocks=5, n_points_in_block=100, variance=0.05, scale=True, all_different_classes=False, random_state=123
+    n_blocks=5, n_points_in_block=100, variance=0.05, scale="minmax", all_different_classes=False, random_state=123
 ):
+    """
+    Returns two tensors (x, y)
+    """
     from src.utils import set_all_seeds
     from src.datasets import scale_datasets
     import torch
@@ -341,6 +357,6 @@ def make_chessboard(
     x, y = torch.cat(x), torch.cat(y)
 
     if scale:
-        x = torch.tensor(scale_datasets(x), dtype=torch.float32)
+        x = torch.tensor(scale_datasets(x, scaler=scale), dtype=torch.float32)
 
     return x, y
