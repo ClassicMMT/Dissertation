@@ -1,7 +1,32 @@
 ######################### Dataset Loading Utility Functions #########################
 
 
-def load_mnist(batch_size=128):
+def load_imagenet(batch_size=128, generator=None):
+    """
+    Loads the validation and test set.
+    Returns: (val_loader, test_loader), (val_dataset, test_dataset)
+
+    Note: Training data is NOT downloaded.
+    """
+    from torchvision import datasets, transforms
+    from torch.utils.data import DataLoader
+
+    transform = transforms.Compose(
+        [
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+        ]
+    )
+
+    val_dataset = datasets.ImageFolder("data/imagenet/val_split", transform=transform)
+    val_loader = DataLoader(dataset=val_dataset, batch_size=batch_size, shuffle=True, generator=generator)
+    test_dataset = datasets.ImageFolder("data/imagenet/test_split", transform=transform)
+    test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True, generator=generator)
+    return (val_loader, test_loader), (val_dataset, test_dataset)
+
+
+def load_mnist(batch_size=128, generator=None):
 
     from torch.utils.data import DataLoader
     import torchvision.transforms as transforms
@@ -10,7 +35,7 @@ def load_mnist(batch_size=128):
     transform = transforms.Compose([transforms.ToTensor()])
     train_dataset = MNIST(root="data/", transform=transform, download=False)
     test_dataset = MNIST(root="data/", transform=transform, download=False, train=False)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, generator=generator)
     test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
     return (train_loader, test_loader), (train_dataset, test_dataset)
