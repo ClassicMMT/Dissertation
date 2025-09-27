@@ -194,7 +194,7 @@ if True:
 # plot the whole entropy distribution
 if True:
     plt.axvline(q_hat, color="red")
-    plt.hist(all_entropies, bins=30)
+    plt.hist(all_entropies, bins=50)
     plt.title("Red line is q_hat")
     plt.show()
 
@@ -202,7 +202,8 @@ if True:
 ################ The relationship between q_hat and adversarial examples
 
 attacks = {
-    "fgsm": fb.attacks.FGSM(),
+    # "fgsm": fb.attacks.FGSM(),
+    "fgsm": fb.attacks.fast_gradient_method.L1FastGradientAttack(),
     "bim": fb.attacks.basic_iterative_method.L2AdamBasicIterativeAttack(),
     "deepfool": fb.attacks.deepfool.L2DeepFoolAttack(),
 }
@@ -220,7 +221,7 @@ for name, attack in attacks.items():
         logits = model(adversarial_examples)
         adversarial_entropies = calculate_entropy(logits)
         results[name] = adversarial_entropies.cpu()
-        labels[name] = (adversarial_entropies > q_hat).cpu()
+        labels[name] = (adversarial_entropies >= q_hat).cpu()
 
 
 for name, adversarial_entropies in results.items():
@@ -228,8 +229,8 @@ for name, adversarial_entropies in results.items():
     print(f"{name}: {percent_over_q_hat.item():.4f}")
 
 if True:
-    fig, axs = plt.subplots(3, 4, figsize=(12, 12))
-    colour_map = {0: "red", 1: "blue"}
+    fig, axs = plt.subplots(3, 3, figsize=(12, 12))
+    colour_map = {1: "red", 0: "blue"}
     for i, name in enumerate(results):
         plot_boundary(
             axs[i, 0],
@@ -260,9 +261,6 @@ if True:
             plot_x=examples[name],
             plot_y=labels[name],
             colour_map=colour_map,
-        )
-        plot_density_landscape(
-            axs[i, 3], x=x_train, y=y_train, plot_x=examples[name], plot_y=labels[name], colour_map=colour_map
         )
     fig.suptitle(f"Points coloured by entropy > q_hat")
     plt.tight_layout()
