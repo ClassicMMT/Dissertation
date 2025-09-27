@@ -194,6 +194,15 @@ def load_model(empty_instance, load_name):
     return empty_instance
 
 
+def load_resnet50(device="mps"):
+    """
+    Loads the pre-trained ResNet50 model.
+    """
+    from torchvision.models import resnet50, ResNet50_Weights
+
+    return resnet50(weights=ResNet50_Weights.DEFAULT).to(device)
+
+
 def set_all_seeds(random_state=123):
     """
     Function to set all possible random seeds.
@@ -296,6 +305,36 @@ def calculate_entropy(logits, detach=True):
     return entropy
 
 
+def calculate_entropies_from_loader(model, loader, device="mps", verbose=False):
+    """
+    Computes the entropy for all examples using the given model and dataloader.
+
+    Returns: (entropies, is_correct)
+    """
+    with torch.no_grad():
+        model.eval()
+
+        result_entropies = []
+        result_is_correct = []
+
+        for i, (features, labels) in enumerate(loader):
+            if verbose:
+                print(f"Batch: {i+1}/{len(loader)}")
+            features = features.to(device)
+            labels = labels.to(device)
+            logits = model(features)
+            entropies = calculate_entropy(logits, detach=True)
+            is_correct = model(features).argmax(dim=-1) == labels
+
+            result_entropies.append(entropies)
+            result_is_correct.append(is_correct)
+
+        result_entropies = torch.cat(result_entropies)
+        result_is_correct = torch.cat(result_is_correct)
+
+    return result_entropies, result_is_correct
+
+
 ######################### Model Related Utility Functions #########################
 
 
@@ -346,7 +385,12 @@ def train_model(
     return model
 
 
-def evaluate_model(model, loader, device="mps") -> float:
+def evaluate_model(model, loader, device="mps", verbose=False) -> float:
+    """
+    Evaluates a model on the given dataloader.
+
+    Returns the accuracy.
+    """
     import torch
 
     with torch.no_grad():
@@ -354,7 +398,10 @@ def evaluate_model(model, loader, device="mps") -> float:
         model.to(device)
 
         n_correct, n_total = 0, 0
-        for features, labels in loader:
+        n = len(loader)
+        for i, (features, labels) in enumerate(loader):
+            if verbose:
+                print(f"Batch: {i+1}/{n}")
             features, labels = features.to(device), labels.to(device)
             n_correct += (model(features).argmax(dim=-1) == labels).sum().item()
             n_total += len(labels)
