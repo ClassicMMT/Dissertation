@@ -44,6 +44,8 @@ def load_mnist(batch_size=128, generator=None):
 def create_loaders(x, y, batch_size, shuffle=True, generator=None):
     """
     Creates a PyTorch dataloader and dataset from the provided data.
+
+    Returns (loader, dataset)
     """
     import torch
     from torch.utils.data import DataLoader, TensorDataset
