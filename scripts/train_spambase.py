@@ -1,7 +1,7 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 from src.utils import (
     set_all_seeds,
     train_model,
@@ -11,9 +11,6 @@ from src.utils import (
 from src.datasets import load_spambase
 from src.models import SpamBaseNet
 
-########### SET NAME HERE ###########
-save_name = "spambase"
-#####################################
 
 # Set variables and random seeds
 random_state = 123
@@ -25,22 +22,36 @@ set_all_seeds(random_state)
     random_state=random_state
 )
 
-# Initialise model
+training_accuracies = []
+test_accuracies = []
+
+epochs = [60, 100, 200, 300, 400]
 model = SpamBaseNet()
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# Train model
-model = train_model(
-    model, loader=train_loader, criterion=criterion, optimizer=optimizer, n_epochs=5
-)
+for epoch in epochs:
 
-# Evaluate model
-print(
-    f"SpamBase Model Test Accuracy: {
-        evaluate_model(model ,test_loader, device=device):.4f
-    }"
-)
+    ########### SET NAME HERE ###########
+    save_name = "spambase_" + str(epoch)
+    #####################################
 
-# Save model
-save_model(model, save_name)
+    # Initialise model
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
+
+    # Train model
+    model, train_accuracy = train_model(
+        model,
+        loader=train_loader,
+        criterion=criterion,
+        optimizer=optimizer,
+        n_epochs=epoch,
+        return_accuracy=True,
+    )
+
+    # Evaluate model
+    print(
+        f"SpamBase Model Test Accuracy: {evaluate_model(model ,test_loader, device=device):.4f}"
+    )
+
+    # Save model
+    save_model(model, save_name)
