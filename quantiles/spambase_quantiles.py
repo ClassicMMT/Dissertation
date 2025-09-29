@@ -6,10 +6,12 @@ import torch
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from src.attacks import attack_model
 from src.datasets import create_loaders, load_spambase, scale_datasets
 from src.models import SpamBaseNet
 from src.utils import calculate_entropy, load_model, set_all_seeds
 import matplotlib.pyplot as plt
+import foolbox as fb
 
 
 random_state = 123
@@ -53,9 +55,10 @@ alpha = 0.05
 q_hat = torch.quantile(val_entropies, 1 - alpha, interpolation="higher")
 
 # plot entropy distribution
-plt.hist(val_entropies, bins=50)
-plt.axvline(q_hat, color="red")
-plt.show()
+if True:
+    plt.hist(val_entropies, bins=50)
+    plt.axvline(q_hat, color="red")
+    plt.show()
 
 # calculate accuracy of examples split by entropy >= q_hat
 
@@ -86,3 +89,33 @@ test_is_correct[uncertain].float().mean()
 test_is_correct[~uncertain].float().mean()
 
 test_is_correct.float().mean()
+
+
+################ The relationship between q_hat and adversarial examples
+
+attacks = {
+    # "fgsm": fb.attacks.FGSM(),
+    "fgsm": fb.attacks.fast_gradient_method.L1FastGradientAttack(),
+    "bim": fb.attacks.basic_iterative_method.L2AdamBasicIterativeAttack(),
+    "deepfool": fb.attacks.deepfool.L2DeepFoolAttack(),
+}
+results = {}
+examples = {}
+labels = {}
+for name, attack in attacks.items():
+    adversarial_examples, original_labels = attack_model(
+        model, attack=attack, loader=train_loader, verbose=False, epsilons=0.01
+    )
+    examples[name] = adversarial_examples.cpu()
+
+    with torch.no_grad():
+        model.eval()
+        logits = model(adversarial_examples)
+        adversarial_entropies = calculate_entropy(logits)
+        results[name] = adversarial_entropies.cpu()
+        labels[name] = (adversarial_entropies >= q_hat).cpu()
+
+
+for name, adversarial_entropies in results.items():
+    percent_over_q_hat = (adversarial_entropies > q_hat).float().mean()
+    print(f"{name}: {percent_over_q_hat.item():.4f}")
