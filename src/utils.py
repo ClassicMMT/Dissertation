@@ -309,7 +309,7 @@ def calculate_entropies_from_loader(model, loader, device="mps", verbose=False):
     """
     Computes the entropy for all examples using the given model and dataloader.
 
-    Returns: (entropies, is_correct)
+    Returns: (entropies, is_correct_prediction)
     """
     with torch.no_grad():
         model.eval()
@@ -332,7 +332,36 @@ def calculate_entropies_from_loader(model, loader, device="mps", verbose=False):
         result_entropies = torch.cat(result_entropies)
         result_is_correct = torch.cat(result_is_correct)
 
-    return result_entropies, result_is_correct
+    return result_entropies, result_is_correct.cpu()
+
+
+def calculate_information_content(logits: torch.Tensor, targets: torch.Tensor | None = None, detach: bool = True):
+    """
+    Computes the information content based on the predictions.
+
+    Args:
+        * targets: the TRUE class labels
+            - if not passed, the model's prediction is used
+        * detach: True will detach from the computation graph
+    """
+    import torch
+    import torch.nn.functional as F
+
+    if detach:
+        logits = logits.clone().detach().cpu()
+    if len(logits.shape) > 2:
+        logits = logits.reshape(logits.shape[0], -1)
+
+    # get the probabilities
+    probs_per_class = F.softmax(logits, dim=-1)
+
+    if targets is not None:  # if the true class labels are available
+        probs_of_interest = probs_per_class[torch.arange(len(targets)), targets]
+    else:  # uses the model's predictions
+        probs_of_interest = probs_per_class.max(dim=-1).values
+
+    # return the information content
+    return -torch.log(probs_of_interest + 1e-12)
 
 
 ######################### Model Related Utility Functions #########################
@@ -413,7 +442,17 @@ def evaluate_model(model, loader, device="mps", verbose=False) -> float:
 
 
 def plot_boundary(
-    axs, model, x, y, device="mps", title="Boundary", point_size=None, plot_x=None, plot_y=None, colour_map: dict = None
+    axs,
+    model,
+    x,
+    y,
+    device="mps",
+    title="Boundary",
+    point_size=None,
+    plot_x=None,
+    plot_y=None,
+    colour_map: dict = None,
+    no_scatter: bool = False,
 ):
     """
     Function to plot the decision boundary of a network.
@@ -446,17 +485,19 @@ def plot_boundary(
         labels = model(grid).argmax(dim=-1).cpu()
     Z = labels.reshape(xx.shape)
     axs.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.coolwarm)
-    if plot_x is None and plot_y is None:
-        plot_x = x
-        plot_y = y
 
-    if isinstance(colour_map, dict):
-        c = [colour_map[int(x)] for x in plot_y]
-        cmap = None
-    else:
-        c = plot_y
-        cmap = plt.cm.coolwarm
-    axs.scatter(plot_x[:, 0], plot_x[:, 1], c=c, edgecolors="k", cmap=cmap, s=point_size)
+    if no_scatter == False:
+        if plot_x is None and plot_y is None:
+            plot_x = x
+            plot_y = y
+
+        if isinstance(colour_map, dict):
+            c = [colour_map[int(x)] for x in plot_y]
+            cmap = None
+        else:
+            c = plot_y
+            cmap = plt.cm.coolwarm
+        axs.scatter(plot_x[:, 0], plot_x[:, 1], c=c, edgecolors="k", cmap=cmap, s=point_size)
     axs.set_title(title)
 
 
@@ -474,6 +515,7 @@ def plot_loss_landscape(
     plot_x=None,
     plot_y=None,
     colour_map=None,
+    no_scatter=False,
 ):
     """
     Function to plot the loss landscape of a network.
@@ -545,27 +587,28 @@ def plot_loss_landscape(
 
     axs.contour(xx, yy, Z, levels=10, colors="white", alpha=0.3, linewidths=0.5)
 
-    # Plot the actual data points
-    if plot_x is None and plot_y is None:
-        plot_x = x
-        plot_y = y
+    if no_scatter == False:
+        # Plot the actual data points
+        if plot_x is None and plot_y is None:
+            plot_x = x
+            plot_y = y
 
-    if isinstance(colour_map, dict):
-        c = [colour_map[int(x)] for x in plot_y]
-        cmap = None
-    else:
-        c = plot_y
-        cmap = plt.cm.coolwarm
+        if isinstance(colour_map, dict):
+            c = [colour_map[int(x)] for x in plot_y]
+            cmap = None
+        else:
+            c = plot_y
+            cmap = plt.cm.coolwarm
 
-    axs.scatter(
-        plot_x[:, 0],
-        plot_x[:, 1],
-        c=c,
-        edgecolors="k",
-        cmap=cmap,
-        s=point_size,
-        zorder=5,
-    )
+        axs.scatter(
+            plot_x[:, 0],
+            plot_x[:, 1],
+            c=c,
+            edgecolors="k",
+            cmap=cmap,
+            s=point_size,
+            zorder=5,
+        )
 
     axs.set_title(title)
 
@@ -590,6 +633,7 @@ def plot_entropy_landscape(
     plot_x=None,
     plot_y=None,
     colour_map=None,
+    no_scatter=False,
 ):
     """
     Plot the entropy of predictions across the input space.
@@ -648,27 +692,28 @@ def plot_entropy_landscape(
     )
     axs.contour(xx, yy, Z, levels=10, colors="white", alpha=0.3, linewidths=0.5)
 
-    # Plot data points
-    if plot_x is None and plot_y is None:
-        plot_x = x
-        plot_y = y
+    if no_scatter == False:
+        # Plot data points
+        if plot_x is None and plot_y is None:
+            plot_x = x
+            plot_y = y
 
-    if isinstance(colour_map, dict):
-        c = [colour_map[int(x)] for x in plot_y]
-        cmap = None
-    else:
-        c = plot_y
-        cmap = plt.cm.coolwarm
+        if isinstance(colour_map, dict):
+            c = [colour_map[int(x)] for x in plot_y]
+            cmap = None
+        else:
+            c = plot_y
+            cmap = plt.cm.coolwarm
 
-    axs.scatter(
-        plot_x[:, 0],
-        plot_x[:, 1],
-        c=c,
-        edgecolors="k",
-        cmap=cmap,
-        s=point_size,
-        zorder=5,
-    )
+        axs.scatter(
+            plot_x[:, 0],
+            plot_x[:, 1],
+            c=c,
+            edgecolors="k",
+            cmap=cmap,
+            s=point_size,
+            zorder=5,
+        )
 
     axs.set_title(title)
     if add_colour_bar:
@@ -689,6 +734,7 @@ def plot_density_landscape(
     plot_x=None,
     plot_y=None,
     colour_map=None,
+    no_scatter=False,
 ):
     """
     Plot the density of points across the training space.
@@ -737,30 +783,128 @@ def plot_density_landscape(
     )
     axs.contour(xx, yy, Z, levels=10, colors="white", alpha=0.3, linewidths=0.5)
 
-    # Plot data points
-    if plot_x is None and plot_y is None:
-        plot_x = x
-        plot_y = y
+    if no_scatter == False:
+        # Plot data points
+        if plot_x is None and plot_y is None:
+            plot_x = x
+            plot_y = y
 
-    if isinstance(colour_map, dict):
-        c = [colour_map[int(x)] for x in plot_y]
-        cmap = None
-    else:
-        c = plot_y
-        cmap = plt.cm.coolwarm
+        if isinstance(colour_map, dict):
+            c = [colour_map[int(x)] for x in plot_y]
+            cmap = None
+        else:
+            c = plot_y
+            cmap = plt.cm.coolwarm
 
-    axs.scatter(
-        plot_x[:, 0],
-        plot_x[:, 1],
-        c=c,
-        edgecolors="k",
-        cmap=cmap,
-        s=point_size,
-        zorder=5,
-    )
+        axs.scatter(
+            plot_x[:, 0],
+            plot_x[:, 1],
+            c=c,
+            edgecolors="k",
+            cmap=cmap,
+            s=point_size,
+            zorder=5,
+        )
 
     axs.set_title(title)
     if add_colour_bar:
         plt.colorbar(contour, ax=axs, label="Density")
+
+    return contour
+
+
+def plot_information_content_landscape(
+    axs,
+    model,
+    x,
+    y,
+    device="mps",
+    title="Information Content",
+    add_colour_bar=False,
+    colour_limits=(None, None),
+    point_size=None,
+    plot_x=None,
+    plot_y=None,
+    colour_map=None,
+    no_scatter=False,
+):
+    """
+    Plot the information content of predictions across the input space.
+
+    Args:
+        colour_limits: a tuple of (vmin, vmax) for consistency across multiple plots
+        plot_x: points to plot
+        plot_y: labels to plot (colours)
+        colour_map: dict object (e.g. {0: "red", 1: "blue"}) including a mapping for all labels
+
+    Notes:
+        * set add_colour_bar=True if you want colour bars on the plot
+        * colour_limits is for making the colourbar consistent across multiple plots
+            - however, the colour bar must be created separately.
+            - see "nn_landscapes.py" for how this is done.
+    """
+    import torch
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    x0_range = x[:, 0].max() - x[:, 0].min()
+    x1_range = x[:, 1].max() - x[:, 1].min()
+
+    x0_padding = x0_range * 0.05
+    x1_padding = x1_range * 0.05
+
+    # Create a mesh grid
+    xx, yy = np.meshgrid(
+        np.linspace(x[:, 0].min() - x0_padding, x[:, 0].max() + x0_padding, 200),
+        np.linspace(x[:, 1].min() - x1_padding, x[:, 1].max() + x1_padding, 200),
+    )
+    grid = torch.tensor(np.c_[xx.ravel(), yy.ravel()], dtype=torch.float32).to(device)
+
+    with torch.no_grad():
+        model.eval()
+        logits = model(grid)
+        information_content = calculate_information_content(logits, detach=True)
+
+    Z = information_content.cpu().numpy().reshape(xx.shape)
+
+    # Plot information content landscape
+    contour = axs.contourf(
+        xx,
+        yy,
+        Z,
+        levels=20,
+        cmap="inferno",
+        alpha=0.7,
+        vmin=colour_limits[0],
+        vmax=colour_limits[1],
+    )
+    axs.contour(xx, yy, Z, levels=10, colors="white", alpha=0.3, linewidths=0.5)
+
+    if no_scatter == False:
+        # Plot data points
+        if plot_x is None and plot_y is None:
+            plot_x = x
+            plot_y = y
+
+        if isinstance(colour_map, dict):
+            c = [colour_map[int(x)] for x in plot_y]
+            cmap = None
+        else:
+            c = plot_y
+            cmap = plt.cm.coolwarm
+
+        axs.scatter(
+            plot_x[:, 0],
+            plot_x[:, 1],
+            c=c,
+            edgecolors="k",
+            cmap=cmap,
+            s=point_size,
+            zorder=5,
+        )
+
+    axs.set_title(title)
+    if add_colour_bar:
+        plt.colorbar(contour, ax=axs, label="Entropy (Uncertainty)")
 
     return contour
