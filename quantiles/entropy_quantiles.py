@@ -24,6 +24,7 @@ from src.utils import (
     plot_boundary,
     plot_density_landscape,
     plot_entropy_landscape,
+    plot_information_content_landscape,
     plot_loss_landscape,
     set_all_seeds,
     train_model,
@@ -83,7 +84,7 @@ if True:
     plot_boundary(axs[0], model, x_train, y_train, device=device)
     plot_loss_landscape(axs[1], model, x=x_train, y=y_train, device=device)
     plot_entropy_landscape(axs[2], model, x=x_train, y=y_train, device=device)
-    plot_density_landscape(axs[3], x=x_train, y=y_train)
+    plot_information_content_landscape(axs[3], model, x=x_train, y=y_train)
     fig.suptitle(f"Epochs:{n_epochs}")
     plt.tight_layout()
     plt.show()
@@ -183,7 +184,7 @@ if True:
     plot_boundary(axs[0], model, x_train, y_train, device=device, plot_x=points, plot_y=labels)
     plot_loss_landscape(axs[1], model, x=x_train, y=y_train, device=device, plot_x=points, plot_y=labels)
     plot_entropy_landscape(axs[2], model, x=x_train, y=y_train, device=device, plot_x=points, plot_y=labels)
-    plot_density_landscape(axs[3], x=x_train, y=y_train, plot_x=points, plot_y=labels)
+    plot_information_content_landscape(axs[3], model, x=x_train, y=y_train, plot_x=points, plot_y=labels)
     fig.suptitle(f"Points coloured by entropy > q_hat")
     plt.tight_layout()
     plt.show()
@@ -229,7 +230,7 @@ for name, adversarial_entropies in results.items():
     print(f"{name}: {percent_over_q_hat.item():.4f}")
 
 if True:
-    fig, axs = plt.subplots(3, 3, figsize=(12, 12))
+    fig, axs = plt.subplots(3, 4, figsize=(12, 12))
     colour_map = {1: "red", 0: "blue"}
     for i, name in enumerate(results):
         plot_boundary(
@@ -254,6 +255,16 @@ if True:
         )
         plot_entropy_landscape(
             axs[i, 2],
+            model,
+            x=x_train,
+            y=y_train,
+            device=device,
+            plot_x=examples[name],
+            plot_y=labels[name],
+            colour_map=colour_map,
+        )
+        plot_information_content_landscape(
+            axs[i, 3],
             model,
             x=x_train,
             y=y_train,
