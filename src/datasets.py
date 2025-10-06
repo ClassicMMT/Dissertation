@@ -27,6 +27,11 @@ def load_imagenet(batch_size=128, generator=None):
 
 
 def load_mnist(batch_size=128, generator=None):
+    """
+    Function to load the mnist data.
+
+    Returns (train_loader, test_loader), (train_dataset, test_dataset)
+    """
 
     from torch.utils.data import DataLoader
     import torchvision.transforms as transforms
@@ -81,6 +86,11 @@ def load_spambase(
     """
     Function to load the spambase data.
 
+    Returns (train_loader, test_loader), (train_dataset, test_dataset)
+
+    If return_raw:
+        Returns X_train, X_test, y_train, y_test
+
     See: https://archive.ics.uci.edu/dataset/94/spambase
 
     Notes:
@@ -134,6 +144,8 @@ def load_heloc(
 ):
     """
     Function to load the HELOC dataset.
+
+    Returns (train_loader, test_loader), (train_dataset, test_dataset)
 
     The if random_split=False, there is a distribution shift as outlined here:
         https://tableshift.org/datasets.html
@@ -341,11 +353,12 @@ def scale_datasets(data, *args, scaler="minmax", return_scaler=False):
 
 
 def make_chessboard(
-    n_blocks=5, n_points_in_block=100, variance=0.05, scale="minmax", all_different_classes=False, random_state=123
+    n_blocks=4, n_points_in_block=100, variance=0.05, scale="minmax", all_different_classes=False, random_state=123
 ):
     """
     Returns two tensors (x, y)
-    """
+
+    Note that the use of scaler here doesn't matter since we just want the data to inside the 0, 1 range."""
     from src.utils import set_all_seeds
     from src.datasets import scale_datasets
     import torch
@@ -387,3 +400,29 @@ def make_chessboard(
         x = torch.tensor(scale_datasets(x, scaler=scale), dtype=torch.float32)
 
     return x, y
+
+
+def load_chessboard(
+    n_blocks=4,
+    n_points_in_block=100,
+    batch_size=128,
+    variance=0.05,
+    scale="minmax",
+    all_different_classes=False,
+    random_state=123,
+    generator=None,
+):
+    """
+    Returns (train_loader, test_loader), (train_dataset, test_dataset)
+
+    Note that the use of scaler here doesn't matter since we just want the data to inside the 0, 1 range.
+    """
+    from sklearn.model_selection import train_test_split
+    from src.datasets import create_loaders
+
+    x, y = make_chessboard(n_blocks, n_points_in_block, variance, scale, all_different_classes, random_state)
+    x_train, x_test, y_train, y_test = train_test_split(x, y, stratify=y, random_state=random_state)
+    train_loader, train_dataset = create_loaders(x_train, y_train, batch_size=batch_size, generator=generator)
+    test_loader, test_dataset = create_loaders(x_test, y_test, batch_size=batch_size, generator=generator)
+
+    return (train_loader, test_loader), (train_dataset, test_dataset)
