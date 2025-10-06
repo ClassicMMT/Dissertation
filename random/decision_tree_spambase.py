@@ -147,3 +147,8 @@ if True:
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
+
+# feature importances
+for feature, value in zip(["probability gaps", "entropy", "information content", "density"], clf.feature_importances_):
+    print(f"Feature: '{feature}' with importance: {value:.4f}")
