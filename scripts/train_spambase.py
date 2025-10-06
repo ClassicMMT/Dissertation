@@ -1,3 +1,7 @@
+"""
+This file trains SpamBaseNet on the SpamBase dataset and saves the models.
+"""
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -18,17 +22,15 @@ device = torch.device("mps")
 set_all_seeds(random_state)
 
 # Load data
-(train_loader, test_loader), (train_dataset, test_dataset) = load_spambase(
-    random_state=random_state
-)
+(train_loader, test_loader), (train_dataset, test_dataset) = load_spambase(random_state=random_state)
 
 training_accuracies = []
 test_accuracies = []
 
-epochs = [60, 100, 200, 300, 400]
-model = SpamBaseNet()
+epochs = [6, 10, 60, 100, 200, 300, 400]
 
 for epoch in epochs:
+    model = SpamBaseNet()
 
     ########### SET NAME HERE ###########
     save_name = "spambase_" + str(epoch)
@@ -49,9 +51,7 @@ for epoch in epochs:
     )
 
     # Evaluate model
-    print(
-        f"SpamBase Model Test Accuracy: {evaluate_model(model ,test_loader, device=device):.4f}"
-    )
+    print(f"SpamBase Model Test Accuracy: {evaluate_model(model ,test_loader, device=device):.4f}")
 
     # Save model
     save_model(model, save_name)
