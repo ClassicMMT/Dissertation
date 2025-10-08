@@ -9,24 +9,17 @@ Same experiment as entropy_conformal_quantiles.py but using the SpamBase dataset
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from src.datasets import create_loaders, load_spambase, make_chessboard, scale_datasets
+from src.datasets import create_loaders, load_spambase, scale_datasets
 from src.utils import (
-    calculate_entropy,
-    evaluate_model,
-    plot_boundary,
-    plot_density_landscape,
-    plot_entropy_landscape,
-    plot_information_content_landscape,
-    plot_loss_landscape,
+    compute_acceptance_threshold,
     set_all_seeds,
     train_model,
 )
 from src.attacks import attack_model
-from src.models import GenericNet, SpamBaseNet
+from src.models import SpamBaseNet
 import foolbox as fb
 import torch
 import torch.nn as nn
-from scipy.stats import beta
 
 
 random_state = 123
@@ -50,22 +43,10 @@ optimizer = torch.optim.Adam(model.parameters())
 n_epochs = 50
 
 # train model
-for epoch in range(n_epochs):
-    print(f"Training epoch: {epoch+1}")
-    for features, labels in train_loader:
-        features = features.to(device)
-        labels = labels.to(device)
-        logits = model(features)
-        loss = criterion(logits, labels)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+model = train_model(model, train_loader, criterion, optimizer, n_epochs, verbose=False, device=device)
 
 
-evaluate_model(model, train_loader)
-evaluate_model(model, test_loader)
-
-# pre-compute model confidences and whether they were correct
+# pre-compute calibration confidences and calibration errors
 with torch.no_grad():
     model.eval()
 
@@ -90,86 +71,10 @@ with torch.no_grad():
     # combine
     calib_confidences = torch.cat(calib_confidences)
     calib_correct = torch.cat(calib_correct)
-    calib_errors = (~calib_correct).float()
+    calib_errors = ~calib_correct
 
-
-def compute_acceptance_threshold(calibration_errors, calibration_confidences, alpha=0.05, delta=0.05):
-    """
-    Function to compute lambda hat from:
-    A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification
-    by Anastasios N. Angelopoulos and Stephen Bates
-
-    Page 25-26 on selective classification.
-
-    Returns lambda_hat
-
-    Args:
-        * calibration_errors: tensor containing True when the prediction is incorrect and False otherwise
-        * calibration_confidences: tensor containing the predicted probabilities of the prediction
-    """
-    candidate_lambdas = np.linspace(0, 1, 101)
-    lambda_hat = None
-
-    for lam in candidate_lambdas:
-        mask = calibration_confidences >= lam
-        n_keep = mask.sum().item()
-        if n_keep == 0:
-            continue
-
-        empirical_risk = (calibration_errors[mask].sum() / n_keep).item()
-
-        # get conservative upper bound on empirical risk
-        r = calibration_errors[mask].sum().item()
-        upper_bound = beta.ppf(1 - delta, r + 1, n_keep - r + 1)
-
-        if upper_bound <= alpha:
-            lambda_hat = lam
-            break
-
-    return lambda_hat
-
-
-def compute_acceptance_threshold(calibration_errors, calibration_confidences, alpha=0.05, delta=0.05):
-    """
-    Function to compute lambda hat from:
-    A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification
-    by Anastasios N. Angelopoulos and Stephen Bates
-
-    Page 25-26 on selective classification.
-
-    Returns lambda_hat
-
-    Args:
-        * calibration_errors: tensor containing True when the prediction is incorrect and False otherwise
-        * calibration_confidences: tensor containing the predicted probabilities of the prediction
-    """
-    candidate_lambdas = np.linspace(0, 1, 101)
-    lambda_hat = None
-
-    upper_bounds = []
-
-    for lam in candidate_lambdas:
-        mask = calibration_confidences >= lam
-        n_keep = mask.sum().item()
-        if n_keep == 0:
-            continue
-
-        empirical_risk = (calibration_errors[mask].sum() / n_keep).item()
-
-        # get conservative upper bound on empirical risk
-        r = calibration_errors[mask].sum().item()
-        upper_bound = beta.ppf(1 - delta, r + 1, n_keep - r + 1)
-
-        upper_bounds.append(upper_bound)
-
-    # need to fix this part - take the last possible lambda such that the empirical risk is < 1-alpha
-    return np.maximum.accumulate(upper_bounds[::-1])
-
-    return lambda_hat
-
-
+# find lambda_hat from the calibration data
 lambda_hat = compute_acceptance_threshold(calib_errors, calib_confidences, alpha=0.05, delta=0.05)
-lambda_hat
 
 # experiment on x_test
 with torch.no_grad():
@@ -241,10 +146,6 @@ with torch.no_grad():
 certain_accuracy.float().mean()
 # accuracy of points with predicted_probability >= lambda_hat
 uncertain_accuracy.float().mean()
-
-
-plt.hist(all_confidences.cpu().numpy())
-plt.show()
 
 
 ################ The relationship between lambda_hat and adversarial examples
