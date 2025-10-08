@@ -430,6 +430,70 @@ def calculate_probability_gap(logits: torch.Tensor, normalise: bool = True, deta
     return gaps
 
 
+def compute_acceptance_threshold(
+    calibration_errors: torch.Tensor, calibration_confidences: torch.Tensor, alpha: float = 0.05, delta: float = 0.05
+) -> float:
+    """
+    Function to compute lambda hat from:
+    A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification
+    by Anastasios N. Angelopoulos and Stephen Bates
+
+    Page 25-26 on selective classification.
+
+    Returns lambda_hat
+
+    Args:
+        * calibration_errors: tensor containing True when the prediction is incorrect and False otherwise
+        * calibration_confidences: tensor containing the model's confidence (probability of predicted class)
+        * alpha: miscoverage level (1 - desired_accuracy)
+        * delta: failure probability
+    """
+    import numpy as np
+    from scipy.stats import beta
+
+    candidate_lambdas = np.linspace(0, 1, 101)
+    lambda_hat = None
+
+    upper_bounds = []
+
+    for lambda_ in candidate_lambdas:
+        confidence_over_lambda = calibration_confidences >= lambda_
+
+        # n(lambda) in the paper
+        n_kept_samples = confidence_over_lambda.sum().item()
+
+        if n_kept_samples == 0:
+            upper_bounds.append(0.0)
+            continue
+
+        # R_hat(lambda) in the paper
+        n_errors = (calibration_errors & confidence_over_lambda).sum().item()
+        misclassification_rate = n_errors / n_kept_samples
+
+        # we have R_hat(lambda) errors out of n(lambda) samples
+        # want to find the highest possible true error rate that could have generated this observation
+
+        # R+(λ) using beta distribution upper confidence bound
+        # This is the (1-delta) quantile of Beta(n_errors + 1, n_kept - n_errors)
+        if n_errors == n_kept_samples:
+            # R+(lambda)
+            r_plus = 1.0
+        else:
+            # R+(lambda)
+            r_plus = beta.ppf(1 - delta, n_errors + 1, n_kept_samples - n_errors)
+
+        upper_bounds.append(r_plus)
+
+    # find lambda_hat
+    for i in range(len(candidate_lambdas)):
+        if all(upper_bound <= alpha for upper_bound in upper_bounds[i:]):
+            lambda_hat = candidate_lambdas[i]
+            return lambda_hat.item()
+
+    # if lambda_hat not found
+    return 0.0
+
+
 ######################### Model Related Utility Functions #########################
 
 
