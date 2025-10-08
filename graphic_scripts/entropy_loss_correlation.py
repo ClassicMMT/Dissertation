@@ -2,15 +2,18 @@
 This script computes and plots the correlation between loss, information_content, and entropy on the spambase dataset.
 """
 
-import numpy as np
 import torch
 import torch.nn as nn
-import foolbox as fb
 import matplotlib.pyplot as plt
-from src.attacks import attack_model, load_adversarial_examples
-from src.datasets import load_heloc, load_mnist, load_spambase
-from src.models import HelocNet, MNISTNet, SpamBaseNet
-from src.utils import calculate_entropy, calculate_information_content, load_model, set_all_seeds, drop_duplicates
+from src.datasets import load_spambase
+from src.models import SpamBaseNet
+from src.utils import (
+    calculate_entropy,
+    calculate_information_content,
+    calculate_probability_gap,
+    load_model,
+    set_all_seeds,
+)
 
 random_state = 123
 set_all_seeds(random_state)
@@ -28,6 +31,7 @@ with torch.no_grad():
     losses = []
     entropies = []
     information_contents = []
+    probability_gaps = []
 
     for features, labels in train_loader:
         features = features.to(device)
@@ -38,30 +42,45 @@ with torch.no_grad():
         loss = criterion(logits, labels)
         entropy = calculate_entropy(logits)
         information_content = calculate_information_content(logits)
+        gaps = calculate_probability_gap(logits)
 
         losses.append(loss)
         entropies.append(entropy)
         information_contents.append(information_content)
+        probability_gaps.append(gaps)
 
     losses = torch.cat(losses).cpu().numpy()
     entropies = torch.cat(entropies).cpu().numpy()
     information_contents = torch.cat(information_contents).cpu().numpy()
+    probability_gaps = torch.cat(probability_gaps).cpu().numpy()
 
 
 if True:
-    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    fig, axs = plt.subplots(2, 3, figsize=(15, 10))
 
-    axs[0].scatter(losses, entropies)
-    axs[0].set_xlabel("Loss")
-    axs[0].set_ylabel("Entropy")
+    axs[0, 0].scatter(losses, entropies)
+    axs[0, 0].set_xlabel("Loss")
+    axs[0, 0].set_ylabel("Entropy")
 
-    axs[1].scatter(losses, information_contents)
-    axs[1].set_xlabel("Loss")
-    axs[1].set_ylabel("Information Content")
+    axs[0, 1].scatter(losses, information_contents)
+    axs[0, 1].set_xlabel("Loss")
+    axs[0, 1].set_ylabel("Information Content")
 
-    axs[2].scatter(entropies, information_contents)
-    axs[2].set_xlabel("Entropy")
-    axs[2].set_ylabel("Information Content")
+    axs[0, 2].scatter(entropies, information_contents)
+    axs[0, 2].set_xlabel("Entropy")
+    axs[0, 2].set_ylabel("Information Content")
+
+    axs[1, 0].scatter(losses, probability_gaps)
+    axs[1, 0].set_xlabel("Loss")
+    axs[1, 0].set_ylabel("Probability Gap")
+
+    axs[1, 1].scatter(probability_gaps, information_contents)
+    axs[1, 1].set_xlabel("Probability Gap")
+    axs[1, 1].set_ylabel("Information Content")
+
+    axs[1, 2].scatter(probability_gaps, entropies)
+    axs[1, 2].set_xlabel("Probability Gap")
+    axs[1, 2].set_ylabel("Entropy")
 
     plt.tight_layout()
     plt.show()
