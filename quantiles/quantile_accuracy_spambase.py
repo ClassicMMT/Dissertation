@@ -51,7 +51,6 @@ n_epochs = 50
 # train model
 model = train_model(model, train_loader, criterion, optimizer, n_epochs, verbose=False, device=device)
 
-
 # calibration part
 with torch.no_grad():
     model.eval()

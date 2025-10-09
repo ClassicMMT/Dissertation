@@ -5,24 +5,22 @@ The purpose of this script is to compare the different selective classification 
     * probability gaps
     * conformal prediction
 
-on the chessboard dataset
+Possibly also add the point density?
 """
 
+import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from src.datasets import create_loaders, make_chessboard
+from src.datasets import load_imagenet
 from src.utils import (
     calculate_entropy,
     calculate_information_content,
     calculate_probability_gap,
     compute_acceptance_threshold,
     evaluate_model,
+    load_resnet50,
     set_all_seeds,
-    train_model,
 )
-from src.models import GenericNet
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 
 
@@ -32,25 +30,10 @@ batch_size = 128
 device = torch.device("mps")
 
 # make train, calibration, and test splits
-x, y = make_chessboard(n_blocks=4, n_points_in_block=100, random_state=random_state, all_different_classes=True)
-x, y = make_chessboard(n_blocks=4, n_points_in_block=100, random_state=random_state)
-n = len(y.unique())
-x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, stratify=y, random_state=random_state)
-x_train, x_calib, y_train, y_calib = train_test_split(x_train, y_train, stratify=y_train, random_state=random_state + 1)
-train_loader, train_dataset = create_loaders(x_train, y_train, batch_size=batch_size, generator=g)
-calib_loader, calib_dataset = create_loaders(x_calib, y_calib, batch_size=batch_size, generator=g)
-test_loader, test_dataset = create_loaders(x_test, y_test, batch_size=batch_size, generator=g)
-
+(calib_loader, test_loader), _ = load_imagenet(batch_size=batch_size, generator=g)
 
 # train model
-model = GenericNet(layers=[2, 1024, 512, 256, n]).to(device)
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters())
-n_epochs = 30
-
-# train model
-model = train_model(model, train_loader, criterion, optimizer, n_epochs, verbose=False, device=device)
-
+model = load_resnet50(device)
 
 # calibration part
 with torch.no_grad():
@@ -64,7 +47,8 @@ with torch.no_grad():
     information_contents = []
     probability_gaps = []
 
-    for features, labels in calib_loader:
+    for i, (features, labels) in enumerate(calib_loader):
+        print(f"Batch: {i+1}/{len(calib_loader)}")
         features = features.to(device)
         labels = labels.to(device)
 
@@ -116,7 +100,8 @@ with torch.no_grad():
     probability_gap_results = []
     combined_results = []
 
-    for features, labels in test_loader:
+    for i, (features, labels) in enumerate(test_loader):
+        print(f"Batch: {i+1}/{len(test_loader)}")
         features = features.to(device)
         labels = labels.to(device)
 
@@ -172,7 +157,7 @@ certain_combined = is_correct[~combined_reject].float()
 uncertain_combined = is_correct[combined_reject].float()
 
 # print results
-print(f"Model Test Accuracy: {evaluate_model(model, test_loader, device=device)*100:.2f}")
+# print(f"Model Test Accuracy: {evaluate_model(model, test_loader, device=device)*100:.2f}")
 print(
     f"CONFORMAL: Certain Acc: {certain_conformal.mean()*100:.2f}%, n: {len(certain_conformal)}, Uncertain Acc: {uncertain_conformal.mean()*100:.2f}%, n: {len(uncertain_conformal)}"
 )
