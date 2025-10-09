@@ -26,6 +26,7 @@ from src.models import GenericNet
 from src.datasets import create_loaders, make_chessboard
 import matplotlib.pyplot as plt
 
+
 random_state = 123
 g = set_all_seeds(random_state)
 device = torch.device("mps")
@@ -94,6 +95,7 @@ clf = BalancedRandomForestClassifier(n_jobs=-1, random_state=random_state)
 clf.fit(tree_features, tree_labels)
 train_preds = clf.predict(tree_features)
 confusion_matrix(tree_labels, train_preds)
+
 
 # get test features
 with torch.no_grad():
