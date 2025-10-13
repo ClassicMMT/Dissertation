@@ -583,6 +583,7 @@ def plot_boundary(
     plot_y=None,
     colour_map: dict = None,
     no_scatter: bool = False,
+    alpha=None,
 ):
     """
     Function to plot the decision boundary of a network.
@@ -593,6 +594,8 @@ def plot_boundary(
         plot_x: points to plot
         plot_y: labels to plot (colours)
         colour_map: dict object (e.g. {0: "red", 1: "blue"}) including a mapping for all labels
+        alpha: array to set alpha per plotted point
+        colour_y: array to set colours per plotted point
     """
     import torch
     import numpy as np
@@ -616,7 +619,7 @@ def plot_boundary(
     Z = labels.reshape(xx.shape)
     axs.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.coolwarm)
 
-    if no_scatter == False:
+    if not no_scatter:
         if plot_x is None and plot_y is None:
             plot_x = x
             plot_y = y
@@ -627,7 +630,7 @@ def plot_boundary(
         else:
             c = plot_y
             cmap = plt.cm.coolwarm
-        axs.scatter(plot_x[:, 0], plot_x[:, 1], c=c, edgecolors="k", cmap=cmap, s=point_size)
+        axs.scatter(plot_x[:, 0], plot_x[:, 1], c=c, edgecolors="k", cmap=cmap, s=point_size, alpha=alpha)
     axs.set_title(title)
 
 
