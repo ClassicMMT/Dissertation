@@ -32,11 +32,13 @@ batch_size = 128
 device = torch.device("mps")
 
 # make train, calibration, and test splits
-x, y = make_chessboard(n_blocks=4, n_points_in_block=100, random_state=random_state, all_different_classes=True)
+# x, y = make_chessboard(n_blocks=4, n_points_in_block=100, random_state=random_state, all_different_classes=True)
 x, y = make_chessboard(n_blocks=4, n_points_in_block=100, random_state=random_state)
 n = len(y.unique())
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, stratify=y, random_state=random_state)
-x_train, x_calib, y_train, y_calib = train_test_split(x_train, y_train, stratify=y_train, random_state=random_state + 1)
+x_train, x_calib, y_train, y_calib = train_test_split(
+    x_train, y_train, test_size=0.25, stratify=y_train, random_state=random_state + 1
+)
 train_loader, train_dataset = create_loaders(x_train, y_train, batch_size=batch_size, generator=g)
 calib_loader, calib_dataset = create_loaders(x_calib, y_calib, batch_size=batch_size, generator=g)
 test_loader, test_dataset = create_loaders(x_test, y_test, batch_size=batch_size, generator=g)

@@ -8,6 +8,8 @@ This file plots accuracies of:
     * certain points
 
 by epoch trained.
+
+Note: This experiment is the one where entropy is calculated from the hidden layers.
 """
 
 import torch
