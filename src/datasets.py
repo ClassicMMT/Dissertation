@@ -353,12 +353,27 @@ def scale_datasets(data, *args, scaler="minmax", return_scaler=False):
 
 
 def make_chessboard(
-    n_blocks=4, n_points_in_block=100, variance=0.05, scale="minmax", all_different_classes=False, random_state=123
+    n_blocks: int = 4,
+    n_points_in_block: int = 100,
+    variance: float = 0.05,
+    scale: str = "minmax",
+    all_different_classes: bool = False,
+    random_state: int = 123,
 ):
     """
     Returns two tensors (x, y)
 
-    Note that the use of scaler here doesn't matter since we just want the data to inside the 0, 1 range."""
+    Note that the use of scaler here doesn't matter since we just want the data to inside the 0, 1 range.
+
+    Args:
+        * n_blocks: the number of blocks/blobs. n_blocks=4 gives a 4x4 board.
+        * n_points_in_block: the number of points in each of the blocks.
+            - n_points = n_blocks ** 2 * n_points_in_block
+        * variance: changes the variance of the blocks. Is not really necessary.
+        * scale: which scaler to use. One of: ["minmax", "standard", "robust"]
+        * all_different_classes: whether each block will have a different class.
+            - n_blocks=4 will result in: 4**2 = 16 classes
+    """
     from src.utils import set_all_seeds
     from src.datasets import scale_datasets
     import torch
