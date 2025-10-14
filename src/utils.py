@@ -2,6 +2,25 @@
 import torch
 
 
+def load_yolo(device="mps", model_dir="trained_models"):
+    """
+    Loads the YOLO model.
+    """
+    import os
+    import urllib.request
+    from ultralytics import YOLO
+
+    os.makedirs(model_dir, exist_ok=True)
+    model_path = os.path.join(model_dir, "yolov8n-cls.pt")
+
+    if not os.path.exists(model_path):
+        url = "https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n-cls.pt"
+        print(f"Downloading YOLOv8n weights to {model_path} ...")
+        urllib.request.urlretrieve(url, model_path)
+
+    return YOLO(model_path).to(device)
+
+
 class KNNDensity:
     """
     Computes the normalised density for the given points.
@@ -323,13 +342,15 @@ def normalised_mse(X, X2, variances):
     return mse.item()
 
 
-def calculate_entropy(logits, detach=True):
+def calculate_entropy(logits, detach=True, apply_softmax=True):
     """
     Computes the entropy for each example.
 
     Requires logits from the model.
 
-    detach=False will allow backpropogation through this calculation.
+    Args:
+        * detach=False will allow backpropogation through this calculation.
+        * apply_softmax=will convert logits to probabilities
     """
     import torch
     import torch.nn.functional as F
@@ -338,7 +359,10 @@ def calculate_entropy(logits, detach=True):
         logits = logits.clone().detach().cpu()
     if len(logits.shape) > 2:
         logits = logits.reshape(logits.shape[0], -1)
-    probs = F.softmax(logits, dim=-1)
+    if apply_softmax:
+        probs = F.softmax(logits, dim=-1)
+    else:
+        probs = logits
     entropy = -(probs * torch.log(probs + 1e-12)).sum(dim=-1)
     return entropy
 
@@ -373,7 +397,9 @@ def calculate_entropies_from_loader(model, loader, device="mps", verbose=False):
     return result_entropies, result_is_correct.cpu()
 
 
-def calculate_information_content(logits: torch.Tensor, targets: torch.Tensor | None = None, detach: bool = True):
+def calculate_information_content(
+    logits: torch.Tensor, targets: torch.Tensor | None = None, detach: bool = True, apply_softmax: bool = True
+):
     """
     Computes the information content based on the predictions.
 
@@ -381,6 +407,7 @@ def calculate_information_content(logits: torch.Tensor, targets: torch.Tensor | 
         * targets: the TRUE class labels
             - if not passed, the model's prediction is used
         * detach: True will detach from the computation graph
+        * apply_softmax=will convert logits to probabilities
     """
     import torch
     import torch.nn.functional as F
@@ -391,7 +418,10 @@ def calculate_information_content(logits: torch.Tensor, targets: torch.Tensor | 
         logits = logits.reshape(logits.shape[0], -1)
 
     # get the probabilities
-    probs_per_class = F.softmax(logits, dim=-1)
+    if apply_softmax:
+        probs_per_class = F.softmax(logits, dim=-1)
+    else:
+        probs_per_class = logits
 
     if targets is not None:  # if the true class labels are available
         probs_of_interest = probs_per_class[torch.arange(len(targets)), targets]
@@ -402,7 +432,9 @@ def calculate_information_content(logits: torch.Tensor, targets: torch.Tensor | 
     return -torch.log(probs_of_interest + 1e-12)
 
 
-def calculate_probability_gap(logits: torch.Tensor, normalise: bool = True, detach: bool = True):
+def calculate_probability_gap(
+    logits: torch.Tensor, normalise: bool = True, detach: bool = True, apply_softmax: bool = True
+):
     """
     Computes the normalised probability gap by default:
         gap = (max_prob - second_max_prob) / max_prob
@@ -410,6 +442,7 @@ def calculate_probability_gap(logits: torch.Tensor, normalise: bool = True, deta
     Args:
         * normalise: divides by max_prob if True otherwise does not
         * detach: detaches from computational graph if True
+        * apply_softmax=will convert logits to probabilities
     """
     import torch.nn.functional as F
 
@@ -417,7 +450,10 @@ def calculate_probability_gap(logits: torch.Tensor, normalise: bool = True, deta
         logits = logits.clone().detach().cpu()
 
     # get the probabilities
-    probs = F.softmax(logits, dim=-1)
+    if apply_softmax:
+        probs = F.softmax(logits, dim=-1)
+    else:
+        probs = logits
 
     top2 = probs.topk(2, dim=-1).values
 
