@@ -1,12 +1,81 @@
 ######################### Dataset Loading Utility Functions #########################
 
 
+def load_coco(batch_size=128, generator=None, val_fraction=0.5):
+    """
+    Loads COCO 2017 validation images and splits them into a validation and test set.
+    Each image is represented by one or more category labels (multi-label classification).
+
+    Args:
+        val_fraction: Fraction of the data to use for validation (rest for test).
+
+    Returns:
+        (val_loader, test_loader), (val_dataset, test_dataset)
+
+    Notes:
+        * requires pycocotools (pip install pycocotools)
+    """
+    import torch
+    from torchvision import transforms
+    from torchvision.datasets import CocoDetection
+    from torch.utils.data import DataLoader, random_split
+
+    root = "data/coco/val2017"
+    annFile = "data/coco/annotations/instances_val2017.json"
+
+    transform = transforms.Compose(
+        [
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+        ]
+    )
+
+    class CocoClassification(CocoDetection):
+        """Treats COCO images as multi-label classification samples."""
+
+        def __init__(self, root, annFile, transform=None):
+            super().__init__(root, annFile)
+            self.transform = transform
+            self.cat_ids = sorted(self.coco.getCatIds())
+            self.cat_id_to_idx = {cat_id: i for i, cat_id in enumerate(self.cat_ids)}
+
+        def __getitem__(self, index):
+            img, target = super().__getitem__(index)
+            if self.transform is not None:
+                img = self.transform(img)
+
+            # Build binary multi-label vector for this image
+            labels = torch.zeros(len(self.cat_ids), dtype=torch.float32)
+            for ann in target:
+                cat_id = ann["category_id"]
+                labels[self.cat_id_to_idx[cat_id]] = 1.0
+
+            return img, labels
+
+    full_dataset = CocoClassification(root, annFile, transform=transform)
+
+    n_total = len(full_dataset)
+    n_val = int(val_fraction * n_total)
+    n_test = n_total - n_val
+    val_dataset, test_dataset = random_split(full_dataset, [n_val, n_test], generator=generator)
+
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, generator=generator)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, generator=generator)
+
+    return (val_loader, test_loader), (val_dataset, test_dataset)
+
+
 def load_imagenet(batch_size=128, generator=None):
     """
     Loads the validation and test set.
     Returns: (val_loader, test_loader), (val_dataset, test_dataset)
 
-    Note: Training data is NOT downloaded.
+    Notes:
+        * Training data is NOT downloaded.
+        * The validation split is split into validation and test sets
+            so both are labelled.
+
     """
     from torchvision import datasets, transforms
     from torch.utils.data import DataLoader
