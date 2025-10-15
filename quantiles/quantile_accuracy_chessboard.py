@@ -98,7 +98,7 @@ with torch.no_grad():
     probability_gaps = torch.cat(probability_gaps)
 
 # Compute Thresholds
-alpha = 0.05
+alpha = 0.1
 delta = 0.05
 
 entropy_threshold = entropies.quantile(1 - alpha, dim=0, interpolation="higher")

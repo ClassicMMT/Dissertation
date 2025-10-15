@@ -79,16 +79,16 @@ with torch.no_grad():
     information_contents = torch.cat(information_contents)
     probability_gaps = torch.cat(probability_gaps)
 
-# Compute Thresholds
-alpha = 0.05
-delta = 0.05
+    # Compute Thresholds
+    alpha = 0.1
+    delta = 0.05
 
-entropy_threshold = entropies.quantile(1 - alpha, dim=0, interpolation="higher")
-information_content_threshold = information_contents.quantile(1 - alpha, dim=0, interpolation="higher")
-probability_gap_threshold = probability_gaps.quantile(alpha, dim=0, interpolation="lower")
-conformal_threshold = compute_acceptance_threshold(
-    calibration_errors, calibration_confidences, alpha=alpha, delta=delta
-)
+    entropy_threshold = entropies.quantile(1 - alpha, dim=0, interpolation="higher")
+    information_content_threshold = information_contents.quantile(1 - alpha, dim=0, interpolation="higher")
+    probability_gap_threshold = probability_gaps.quantile(alpha, dim=0, interpolation="lower")
+    conformal_threshold = compute_acceptance_threshold(
+        calibration_errors, calibration_confidences, alpha=alpha, delta=delta
+    )
 
 
 # Compute test results
@@ -98,7 +98,8 @@ with torch.no_grad():
     entropy_results = []
     info_content_results = []
     probability_gap_results = []
-    combined_results = []
+    either_results = []
+    all_results = []
 
     for i, (features, labels) in enumerate(test_loader):
         print(f"Batch: {i+1}/{len(test_loader)}")
@@ -120,7 +121,8 @@ with torch.no_grad():
         entropy_mask = entropy > entropy_threshold
         info_content_mask = info_content > information_content_threshold
         probability_gap_mask = gaps < probability_gap_threshold  # IMPORTANT
-        all_mask = entropy_mask | info_content_mask | probability_gap_mask
+        either_mask = entropy_mask | info_content_mask | probability_gap_mask
+        all_mask = entropy_mask & info_content_mask & probability_gap_mask
 
         prediction_is_correct = predictions == labels
 
@@ -130,14 +132,16 @@ with torch.no_grad():
         entropy_results.append(entropy_mask)
         info_content_results.append(info_content_mask)
         probability_gap_results.append(probability_gap_mask)
-        combined_results.append(all_mask)
+        either_results.append(either_mask)
+        all_results.append(all_mask)
 
     is_correct = torch.cat(is_correct)
     conformal_reject = torch.cat(conformal_results)
     entropy_reject = torch.cat(entropy_results)
     info_content_reject = torch.cat(info_content_results)
     probability_gap_reject = torch.cat(probability_gap_results)
-    combined_reject = torch.cat(combined_results)
+    either_reject = torch.cat(either_results)
+    all_reject = torch.cat(all_results)
 
 
 # evaluation
@@ -153,8 +157,11 @@ uncertain_info_content = is_correct[info_content_reject].float()
 certain_probability_gap = is_correct[~probability_gap_reject].float()
 uncertain_probability_gap = is_correct[probability_gap_reject].float()
 
-certain_combined = is_correct[~combined_reject].float()
-uncertain_combined = is_correct[combined_reject].float()
+certain_either = is_correct[~either_reject].float()
+uncertain_either = is_correct[either_reject].float()
+
+certain_all = is_correct[~all_reject].float()
+uncertain_all = is_correct[all_reject].float()
 
 # print results
 # print(f"Model Test Accuracy: {evaluate_model(model, test_loader, device=device)*100:.2f}")
@@ -171,5 +178,10 @@ print(
     f"PROBABILITY GAP: Certain Acc: {certain_probability_gap.mean()*100:.2f}%, n: {len(certain_probability_gap)}, Uncertain Acc: {uncertain_probability_gap.mean()*100:.2f}%, n: {len(uncertain_probability_gap)}"
 )
 print(
-    f"COMBINED: Certain Acc: {certain_combined.mean()*100:.2f}%, n: {len(certain_combined)}, Uncertain Acc: {uncertain_combined.mean()*100:.2f}%, n: {len(uncertain_combined)}"
+    f"EITHER: Certain Acc: {certain_either.mean()*100:.2f}%, n: {len(certain_either)}, Uncertain Acc: {uncertain_either.mean()*100:.2f}%, n: {len(uncertain_either)}"
 )
+print(
+    f"ALL: Certain Acc: {certain_all.mean()*100:.2f}%, n: {len(certain_all)}, Uncertain Acc: {uncertain_all.mean()*100:.2f}%, n: {len(uncertain_all)}"
+)
+
+evaluate_model(model, test_loader, device, verbose=True)
