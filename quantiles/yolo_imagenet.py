@@ -14,6 +14,8 @@ from src.utils import (
     calculate_probability_gap,
     load_yolo,
     set_all_seeds,
+    yolo_to_probs,
+    evaluate_yolo,
 )
 
 random_state = 123
@@ -25,33 +27,8 @@ batch_size = 128
 model = load_yolo(device="mps")
 (calib_loader, test_loader), _ = load_imagenet(batch_size=batch_size, generator=g)
 
-
-# Utility function
-def yolo_to_probs(output):
-    return torch.stack([x.probs.data for x in output])
-
-
-def evaluate_yolo(model, loader, device, verbose=True):
-    with torch.no_grad():
-        model.eval()
-
-        correct, total = 0, 0
-        for i, (features, labels) in enumerate(loader):
-            if verbose:
-                print(f"Evaluating batch: {i+1}/{len(loader)}")
-            features = features.to(device)
-            labels = labels.to(device)
-
-            output = model(features, verbose=False)
-            probs = yolo_to_probs(output)
-            preds = probs.argmax(dim=-1)
-
-            is_correct = preds == labels
-            correct += is_correct.sum().item()
-            total += len(labels)
-
-    return correct / total
-
+# Model evaluation
+evaluate_yolo(model, test_loader, device)
 
 # Calculate the per class uncertainties on the calibration set
 with torch.no_grad():
@@ -82,7 +59,7 @@ with torch.no_grad():
     probability_gaps = torch.cat(probability_gaps)
 
     # calculate thresholds
-    alpha = 0.05
+    alpha = 0.1
     entropy_threshold = torch.quantile(entropies, 1 - alpha, dim=0, interpolation="higher")
     information_threshold = torch.quantile(information_contents, 1 - alpha, dim=0, interpolation="higher")
     gap_threshold = torch.quantile(probability_gaps, alpha, dim=0, interpolation="lower")
