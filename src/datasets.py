@@ -115,6 +115,28 @@ def load_mnist(batch_size=128, generator=None):
     return (train_loader, test_loader), (train_dataset, test_dataset)
 
 
+def load_cifar(batch_size=128, generator=None, download=True):
+    """
+    Function to load the CIFAR data.
+
+    Returns (val_loader, test_loader), (val_dataset, test_dataset)
+    """
+
+    from torch.utils.data import DataLoader, random_split
+    import torchvision.transforms as transforms
+    from torchvision.datasets import CIFAR10
+
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2470, 0.2435, 0.2616])]
+    )
+    dataset = CIFAR10(root="data/", transform=transform, download=download, train=False)
+    val_dataset, test_dataset = random_split(dataset, lengths=[0.5, 0.5], generator=generator)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size)
+
+    return (val_loader, test_loader), (val_dataset, test_dataset)
+
+
 def create_loaders(x, y, batch_size, shuffle=True, generator=None):
     """
     Creates a PyTorch dataloader and dataset from the provided data.
