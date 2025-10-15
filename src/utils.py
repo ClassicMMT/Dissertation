@@ -2,25 +2,6 @@
 import torch
 
 
-def load_yolo(device="mps", model_dir="trained_models"):
-    """
-    Loads the YOLO model.
-    """
-    import os
-    import urllib.request
-    from ultralytics import YOLO
-
-    os.makedirs(model_dir, exist_ok=True)
-    model_path = os.path.join(model_dir, "yolov8n-cls.pt")
-
-    if not os.path.exists(model_path):
-        url = "https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n-cls.pt"
-        print(f"Downloading YOLOv8n weights to {model_path} ...")
-        urllib.request.urlretrieve(url, model_path)
-
-    return YOLO(model_path).to(device)
-
-
 class KNNDensity:
     """
     Computes the normalised density for the given points.
@@ -210,6 +191,41 @@ class BoundingBox:
 ######################### General Utility Functions #########################
 
 
+def yolo_to_probs(output):
+    """
+    The output of a YOLO model is a list of stuff.
+    This function simplifies extracting the relevant predicted probabilities
+    and returns them.
+    """
+    return torch.stack([x.probs.data for x in output])
+
+
+def evaluate_yolo(model, loader, device, verbose=True):
+    """
+    This function is a slightly modified version of
+    the evaluate_model function which works for the YOLO model.
+    """
+    with torch.no_grad():
+        model.eval()
+
+        correct, total = 0, 0
+        for i, (features, labels) in enumerate(loader):
+            if verbose:
+                print(f"Evaluating batch: {i+1}/{len(loader)}")
+            features = features.to(device)
+            labels = labels.to(device)
+
+            output = model(features, verbose=False)
+            probs = yolo_to_probs(output)
+            preds = probs.argmax(dim=-1)
+
+            is_correct = preds == labels
+            correct += is_correct.sum().item()
+            total += len(labels)
+
+    return correct / total
+
+
 def save_model(model, name):
     """
     Function to save a trained model.
@@ -251,9 +267,31 @@ def load_model(empty_instance, load_name):
     return empty_instance
 
 
+def load_cifar_model(model_name="cifar10_resnet56", device="mps"):
+    """
+    Loads pre-trained cifar models.
+
+    Models tested:
+        * cifar10_resnet56
+        * cifar10_vit_l16 - NOT WORKING
+
+    Run the following to see available models:
+        from pprint import pprint
+        pprint(torch.hub.list("chenyaofo/pytorch-cifar-models", force_reload=True))
+    """
+
+    import torch
+
+    try:
+        model = torch.hub.load("chenyaofo/pytorch-cifar-models", model_name, pretrained=True)
+    except IsADirectoryError:
+        model = torch.hub.load("chenyaofo/pytorch-cifar-models", model_name, pretrained=True, force_reload=True)
+    return model.to(device)
+
+
 def load_resnet50(device="mps"):
     """
-    Loads the pre-trained ResNet50 model.
+    Loads the ImageNet pre-trained ResNet50 model.
     """
     from torchvision.models import resnet50, ResNet50_Weights
 
@@ -531,6 +569,25 @@ def compute_acceptance_threshold(
 
 
 ######################### Model Related Utility Functions #########################
+
+
+def load_yolo(device="mps", model_dir="trained_models"):
+    """
+    Loads the YOLO model.
+    """
+    import os
+    import urllib.request
+    from ultralytics import YOLO
+
+    os.makedirs(model_dir, exist_ok=True)
+    model_path = os.path.join(model_dir, "yolov8n-cls.pt")
+
+    if not os.path.exists(model_path):
+        url = "https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n-cls.pt"
+        print(f"Downloading YOLOv8n weights to {model_path} ...")
+        urllib.request.urlretrieve(url, model_path)
+
+    return YOLO(model_path).to(device)
 
 
 def train_model(
