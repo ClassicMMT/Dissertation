@@ -1,16 +1,18 @@
 """
-This script calculates the agreeableness between the three methods on the ImageNet dataset.
+This script calculates the agreeableness between the three methods on the SpamBase dataset.
 """
 
+from sklearn.model_selection import train_test_split
 import torch
+from src.models import SpamBaseNet
 from src.utils import (
     calculate_entropy,
     calculate_information_content,
     calculate_probability_gap,
-    load_resnet50,
     set_all_seeds,
+    train_model,
 )
-from src.datasets import load_imagenet
+from src.datasets import create_loaders, load_imagenet, load_spambase
 import matplotlib.pyplot as plt
 
 random_state = 123
@@ -18,8 +20,20 @@ g = set_all_seeds(random_state)
 device = torch.device("mps")
 batch_size = 128
 
-(calib_loader, test_loader), _ = load_imagenet(batch_size=batch_size, generator=g)
-model = load_resnet50(device=device)
+x_train, x_test, y_train, y_test = load_spambase(
+    batch_size=batch_size, test_size=0.25, return_raw=True, random_state=random_state
+)
+x_train, x_calib, y_train, y_calib = train_test_split(
+    x_train, y_train, test_size=0.2, stratify=y_train, random_state=random_state
+)
+train_loader, _ = create_loaders(x_train, y_train, batch_size=batch_size, generator=g)
+calib_loader, _ = create_loaders(x_calib, y_calib, batch_size=batch_size, generator=g)
+test_loader, _ = create_loaders(x_test, y_test, batch_size=batch_size, generator=g)
+
+model = SpamBaseNet().to(device)
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters())
+model = train_model(model, train_loader, criterion, optimizer, n_epochs=6, verbose=False, device=device)
 
 
 alpha = 0.1
@@ -33,7 +47,6 @@ with torch.no_grad():
     probability_gaps = []
 
     for i, (features, labels) in enumerate(calib_loader):
-        print(f"Batch: {i+1}/{len(calib_loader)}")
         features = features.to(device)
         lables = labels.to(device)
         logits = model(features)
@@ -63,7 +76,6 @@ with torch.no_grad():
     test_gaps = []
 
     for i, (features, _) in enumerate(test_loader):
-        print(f"Batch: {i+1}/{len(test_loader)}")
         features = features.to(device)
 
         logits = model(features)
