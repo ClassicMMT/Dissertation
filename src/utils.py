@@ -584,7 +584,7 @@ def load_yolo(device="mps", model_dir="trained_models"):
 
     if not os.path.exists(model_path):
         url = "https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n-cls.pt"
-        print(f"Downloading YOLOv8n weights to {model_path} ...")
+        print(f"Downloading YOLOv8n-cls weights to {model_path} ...")
         urllib.request.urlretrieve(url, model_path)
 
     return YOLO(model_path).to(device)
