@@ -95,22 +95,30 @@ def load_imagenet(batch_size=128, generator=None):
     return (val_loader, test_loader), (val_dataset, test_dataset)
 
 
-def load_mnist(batch_size=128, generator=None):
+def load_mnist(batch_size=128, generator=None, return_val=False, download=True):
     """
     Function to load the mnist data.
 
     Returns (train_loader, test_loader), (train_dataset, test_dataset)
+
+    If return_val=True:
+        Returns (train_loader, val_loader, test_loader), (train_dataset, val_dataset, test_dataset)
     """
 
-    from torch.utils.data import DataLoader
+    from torch.utils.data import DataLoader, random_split
     import torchvision.transforms as transforms
     from torchvision.datasets import MNIST
 
     transform = transforms.Compose([transforms.ToTensor()])
-    train_dataset = MNIST(root="data/", transform=transform, download=False)
-    test_dataset = MNIST(root="data/", transform=transform, download=False, train=False)
+    train_dataset = MNIST(root="data/", transform=transform, download=download)
+    test_dataset = MNIST(root="data/", transform=transform, download=download, train=False)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, generator=generator)
     test_loader = DataLoader(test_dataset, batch_size=batch_size)
+
+    if return_val:
+        val_dataset, test_dataset = random_split(test_dataset, lengths=[0.5, 0.5], generator=generator)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, generator=generator)
+        return (train_loader, val_loader, test_loader), (train_dataset, val_dataset, test_dataset)
 
     return (train_loader, test_loader), (train_dataset, test_dataset)
 
@@ -232,16 +240,18 @@ def load_heloc(
     random_split=False,
     random_state=123,
     size=0.2,
+    return_raw=False,
 ):
     """
     Function to load the HELOC dataset.
 
     Returns (train_loader, test_loader), (train_dataset, test_dataset)
 
-    The if random_split=False, there is a distribution shift as outlined here:
-        https://tableshift.org/datasets.html
-
-    If random_split=True, then a random sample is taken based on the random_state and size
+    Args:
+        * If random_split=False, there is a distribution shift as outlined here:
+              https://tableshift.org/datasets.html
+          If random_split=True, then a random sample is taken based on the random_state and size
+        * return_raw=True will return (X_train, X_test, y_train, y_test)
     """
 
     import torch
@@ -277,14 +287,17 @@ def load_heloc(
     X_train = train.drop("RiskPerformance", axis=1)
     X_test = test.drop("RiskPerformance", axis=1)
 
-    if scale:
-        X_train, X_test = scale_datasets(X_train, X_test)
-
     # convert response to numeric
     y_train = train["RiskPerformance"]
     y_train = y_train.apply(lambda risk: 0 if risk == "Bad" else 1).to_numpy()
     y_test = test["RiskPerformance"]
     y_test = y_test.apply(lambda risk: 0 if risk == "Bad" else 1).to_numpy()
+
+    if return_raw:
+        return X_train, X_test, y_train, y_test
+
+    if scale:
+        X_train, X_test = scale_datasets(X_train, X_test)
 
     # The data was initially integer data, so may need to take that into consideration
     train_loader, train_dataset = create_loaders(X_train, y_train, batch_size=batch_size)
