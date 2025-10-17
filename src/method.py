@@ -272,3 +272,67 @@ def identify_uncertain_points_all(trained_model, calib_loader, test_loader, alph
         "highly_uncertain_all": highly_uncertain_all,
         "is_correct_predictions": is_correct_predictions,
     }
+
+
+######################### Case Study 3 #########################
+
+
+def get_uncertainty_features(trained_model, loader, return_loader=False, verbose=False, device="mps"):
+    """
+    An implementation of Functions 1 and 2, required for Algorithm 4.
+
+    Returns (features, labels)
+
+    Args:
+        * trained_model: a trained PyTorch model
+        * loader: PyTorch data loader
+        * return_loader: if True, returns (loader, dataset)
+    """
+
+    import torch
+    from src.utils import calculate_entropy, calculate_information_content, calculate_probability_gap
+
+    with torch.no_grad():
+
+        out_features = []
+        out_labels = []
+
+        trained_model.eval()
+        for i, (features, labels) in enumerate(loader):
+            if verbose:
+                print(f"Batch: {i+1}/{len(loader)}")
+            features = features.to(device)
+            labels = labels.to(device)
+
+            # get logits and predictions
+            logits = trained_model(features)
+            preds = logits.argmax(dim=-1)
+            is_misclassified = preds != labels
+
+            # calculate uncertainty
+            entropies = calculate_entropy(logits)
+            information_contents = calculate_information_content(logits)
+            gaps = calculate_probability_gap(logits)
+
+            # make features
+            batch_data = torch.stack(
+                (
+                    entropies,
+                    information_contents,
+                    gaps,
+                )
+            )
+
+            out_features.append(batch_data)
+            out_labels.append(is_misclassified.int())
+
+        out_features = torch.cat(out_features, dim=-1).cpu().T
+        out_labels = torch.cat(out_labels, dim=0).cpu()
+
+    if return_loader:
+        from src.datasets import create_loaders
+
+        out_loader, out_dataset = create_loaders(out_features, out_labels)
+        return out_loader, out_dataset
+
+    return out_features, out_labels
