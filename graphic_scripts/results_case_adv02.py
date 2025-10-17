@@ -1,6 +1,7 @@
 """
-This script computes the adversarial identification rates
-for the five uncertainty identification methods.
+This script evaluates the impact of epsilon on
+adversarial identification for the quantile method
+for the CIFAR-10 dataset.
 """
 
 import torch
@@ -8,8 +9,6 @@ from src.utils import calculate_entropy, set_all_seeds, load_cifar_model, drop_d
 from src.datasets import load_cifar
 from src.method import compute_threshold_all
 import matplotlib.pyplot as plt
-
-# import matplotlib.lines as mlines
 import foolbox as fb
 import pandas as pd
 
@@ -30,7 +29,7 @@ adversarial_identification_results = {
     "any": [],
     "all": [],
     "attack": [],
-    "alpha": [],
+    "epsilon": [],
 }
 
 attacks = {
@@ -56,13 +55,13 @@ model.eval()
 fmodel = fb.PyTorchModel(model, bounds=(global_min, global_max), device=device)
 
 # Get results
-# alphas = torch.linspace(0.01, 0.25, 25)
-alphas = torch.linspace(0.01, 0.1, 10)
-for alpha in alphas:
-    print(f"Alpha: {alpha:.4f}")
+epsilons = torch.linspace(0.01, 0.1, 10)
+for epsilon in epsilons:
 
     # get thresholds
-    entropy_threshold, info_threshold, gap_threshold = compute_threshold_all(model, calib_loader, alpha, device=device)
+    entropy_threshold, info_threshold, gap_threshold = compute_threshold_all(
+        model, calib_loader, alpha=0.05, device=device
+    )
 
     # go through all attacks
     for attack_name, attack in attacks.items():
@@ -79,10 +78,10 @@ for alpha in alphas:
             features, labels = features.to(device), labels.to(device)
             is_correct_prediction = model(features).argmax(dim=-1) == labels
 
-            print(f"Alpha: {alpha:.4f}, batch:{i+1}/{len(test_loader)}, attack:{attack_name}")
+            print(f"Epsilon: {epsilon:.4f}, batch:{i+1}/{len(test_loader)}, attack:{attack_name}")
 
             # get adversarial examples
-            _, clipped, is_adv = attack(fmodel, features, labels, epsilons=0.03)
+            _, clipped, is_adv = attack(fmodel, features, labels, epsilons=epsilon.item())
             is_correct_and_adversarial = is_correct_prediction & is_adv
             adversarial_examples = drop_duplicates(clipped[is_correct_and_adversarial])
 
@@ -126,12 +125,12 @@ for alpha in alphas:
         adversarial_identification_results["any"].append(any_rate)
         adversarial_identification_results["all"].append(all_rate)
         adversarial_identification_results["attack"].append(attack_name)
-        adversarial_identification_results["alpha"].append(alpha.item())
+        adversarial_identification_results["epsilon"].append(epsilon.item())
 
 
-# data = pd.read_csv("saved_results/adversarial_case_cifar_results.csv")
+# data = pd.read_csv("saved_results/adversarial_case_cifar_results_epsilon.csv")
 data = pd.DataFrame(adversarial_identification_results)
-# data.to_csv("saved_results/adversarial_case_cifar_results.csv", index=False)
+# data.to_csv("saved_results/adversarial_case_cifar_results_epsilon.csv", index=False)
 
 # Plots
 if True:
@@ -145,7 +144,7 @@ if True:
             elif attack_name == "deepfool":
                 label = "DeepFool"
             subset = data[data["attack"] == attack_name]
-            axs[i].plot(subset.alpha, subset[method], label=label)
+            axs[i].plot(subset.epsilon, subset[method], label=label)
 
         axs[i].set_ylim(bottom=0, top=1.05)
         if method == "any":
@@ -153,7 +152,7 @@ if True:
         elif method == "all":
             method = "All Three"
         axs[i].set_title(method.replace("_", " ").title())
-        axs[i].set_xlabel("Alpha")
+        axs[i].set_xlabel("Epsilon")
         axs[i].legend(loc="lower right")
         axs[i].grid(alpha=0.3)
 
