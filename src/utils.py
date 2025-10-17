@@ -2,6 +2,23 @@
 import torch
 
 
+class YoloWrapper:
+    """
+    Utility class to simplify calling the yolo model.
+    """
+
+    def __init__(self, yolo_model):
+        self.model = yolo_model
+
+    def __call__(self, x, verbose=False):
+        output = self.model(x, verbose=verbose)
+        probabilities = yolo_to_probs(output)
+        return probabilities
+
+    def eval(self):
+        self.model = self.model.eval()
+
+
 class KNNDensity:
     """
     Computes the normalised density for the given points.
