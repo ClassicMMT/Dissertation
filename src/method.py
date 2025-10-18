@@ -277,7 +277,9 @@ def identify_uncertain_points_all(trained_model, calib_loader, test_loader, alph
 ######################### Case Study 3 #########################
 
 
-def get_uncertainty_features(trained_model, loader, return_loader=False, verbose=False, device="mps"):
+def get_uncertainty_features(
+    trained_model, loader, return_loader=False, apply_softmax=True, verbose=False, device="mps"
+):
     """
     An implementation of Functions 1 and 2, required for Algorithm 4.
 
@@ -287,6 +289,7 @@ def get_uncertainty_features(trained_model, loader, return_loader=False, verbose
         * trained_model: a trained PyTorch model
         * loader: PyTorch data loader
         * return_loader: if True, returns (loader, dataset)
+        * apply_softmax should be set to True if trained_model is a YOLO model
     """
 
     import torch
@@ -310,9 +313,9 @@ def get_uncertainty_features(trained_model, loader, return_loader=False, verbose
             is_misclassified = preds != labels
 
             # calculate uncertainty
-            entropies = calculate_entropy(logits)
-            information_contents = calculate_information_content(logits)
-            gaps = calculate_probability_gap(logits)
+            entropies = calculate_entropy(logits, apply_softmax=apply_softmax)
+            information_contents = calculate_information_content(logits, apply_softmax=apply_softmax)
+            gaps = calculate_probability_gap(logits, apply_softmax=apply_softmax)
 
             # make features
             batch_data = torch.stack(
