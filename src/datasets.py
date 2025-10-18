@@ -172,7 +172,7 @@ def create_loaders(x, y, batch_size, shuffle=True, generator=None):
 
 def load_spambase(
     batch_size: int = 128,
-    test_size: float = 0.1,
+    test_size: float = 0.25,
     scale: str = "minmax",
     # covariate shift arguments
     induce_test_covariate_shift: bool = False,
@@ -181,6 +181,7 @@ def load_spambase(
     # return (X_train, X_test, y_train, y_test)
     return_raw: bool = False,
     random_state: int = 123,
+    return_train_val_test: bool = False,
 ):
     """
     Function to load the spambase data.
@@ -189,6 +190,9 @@ def load_spambase(
 
     If return_raw:
         Returns X_train, X_test, y_train, y_test
+
+    If return_train_val_test:
+        Returns X_train, X_val, X_test, y_train, y_val, y_test
 
     See: https://archive.ics.uci.edu/dataset/94/spambase
 
@@ -199,6 +203,9 @@ def load_spambase(
         * covariate_shift_n_features controls the number of features to induce shift in
         * setting return_raw=True will return (X_train, X_test, y_train, y_test)
         * scale = "minmax" | "standard" | "robust"
+
+    Note: this function has been modified a million times so its logic is all messed
+        up not to break all of the previous scripts.
     """
 
     import torch
@@ -212,6 +219,22 @@ def load_spambase(
     X, y = spambase.data.features.to_numpy(), spambase.data.targets["Class"].to_numpy()
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
+
+    if return_train_val_test:
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_train, y_train, test_size=test_size, stratify=y_train, random_state=random_state
+        )
+
+        if scale:
+            X_train, X_val, X_test = scale_datasets(X_train, X_val, X_test)
+
+        if return_raw:
+            return X_train, X_val, X_test, y_train, y_val, y_test
+
+        train_loader, train_dataset = create_loaders(X_train, y_train, batch_size=batch_size, generator=g)
+        val_loader, val_dataset = create_loaders(X_val, y_val, batch_size=batch_size, generator=g)
+        test_loader, test_dataset = create_loaders(X_test, y_test, batch_size=batch_size, generator=g)
+        return (train_loader, val_loader, test_loader), (train_dataset, val_dataset, test_dataset)
 
     if return_raw:
         return X_train, X_test, y_train, y_test
