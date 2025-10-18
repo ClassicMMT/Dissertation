@@ -18,6 +18,12 @@ class YoloWrapper:
     def eval(self):
         self.model = self.model.eval()
 
+    def __str__(self):
+        return self.model.__str__()
+
+    def __repr__(self):
+        return self.model.__repr__()
+
 
 class KNNDensity:
     """
