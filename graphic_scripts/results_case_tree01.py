@@ -36,6 +36,9 @@ model = load_cifar_model("cifar10_resnet56", device=device)
 # get features
 features, labels = get_uncertainty_features(model, calib_loader, device=device)
 
+# get counts
+labels.unique(return_counts=True)
+
 # Train model on the features
 clf = BalancedRandomForestClassifier(n_jobs=-1, random_state=random_state)
 clf.fit(features, labels)

@@ -18,11 +18,11 @@ from imblearn.ensemble import BalancedRandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, roc_curve, auc, recall_score, precision_score
 from src.method import get_uncertainty_features
 from src.utils import (
+    load_model,
     set_all_seeds,
-    train_model,
 )
 from src.models import SpamBaseNet
-from src.datasets import create_loaders, load_spambase
+from src.datasets import load_spambase
 import matplotlib.pyplot as plt
 
 random_state = 123
@@ -31,21 +31,16 @@ device = torch.device("mps")
 batch_size = 128
 
 # GET DATA AND MODEL
-x_train, x_test, y_train, y_test = load_spambase(batch_size, test_size=0.25, return_raw=True, random_state=random_state)
-x_train, x_calib, y_train, y_calib = train_test_split(
-    x_train, y_train, test_size=0.25, stratify=y_train, random_state=random_state
+(_, calib_loader, test_loader), _ = load_spambase(
+    batch_size, test_size=0.25, return_train_val_test=True, random_state=random_state
 )
-train_loader, train_dataset = create_loaders(x_train, y_train, batch_size=batch_size, generator=g)
-calib_loader, calib_dataset = create_loaders(x_calib, y_calib, batch_size=batch_size, generator=g)
-test_loader, test_dataset = create_loaders(x_test, y_test, batch_size=batch_size, generator=g)
-model = SpamBaseNet().to(device)
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-n_epochs = 30
-model = train_model(model, train_loader, criterion, optimizer, n_epochs, verbose=False, device=device)
+model = load_model(SpamBaseNet(), "spambase_final.pt").to(device)
 
 # get features
 features, labels = get_uncertainty_features(model, calib_loader, device=device)
+
+# get counts
+labels.unique(return_counts=True)
 
 # Train model on the features
 clf = BalancedRandomForestClassifier(n_jobs=-1, random_state=random_state)

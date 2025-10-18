@@ -31,8 +31,8 @@ device = torch.device("mps")
 batch_size = 128
 
 # GET DATA AND MODEL
-# x, y = make_chessboard(n_blocks=4, n_points_in_block=128, random_state=random_state, all_different_classes=True)
-x, y = make_chessboard(n_blocks=4, n_points_in_block=100, random_state=random_state)
+x, y = make_chessboard(n_blocks=4, n_points_in_block=128, random_state=random_state, all_different_classes=True)
+# x, y = make_chessboard(n_blocks=4, n_points_in_block=100, random_state=random_state)
 n = len(y.unique())
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, stratify=y, random_state=random_state)
 x_train, x_calib, y_train, y_calib = train_test_split(
@@ -49,6 +49,9 @@ model = train_model(model, train_loader, criterion, optimizer, n_epochs, verbose
 
 # get features
 features, labels = get_uncertainty_features(model, calib_loader, device=device)
+
+# get counts
+labels.unique(return_counts=True)
 
 # Train model on the features
 clf = BalancedRandomForestClassifier(n_jobs=-1, random_state=random_state)

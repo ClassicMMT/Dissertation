@@ -8,7 +8,7 @@ and uses them to train another classifier which will
 predict whether the original model will misclassify
 the examples.
 
-On the ImageNet Dataset
+On the ImageNet Dataset for both ResNet50 and the YOLO model.
 """
 
 import torch
@@ -28,11 +28,24 @@ batch_size = 128
 
 # get data and model
 (calib_loader, test_loader), _ = load_imagenet(batch_size=batch_size, generator=g)
-model = load_resnet50(device=device)
-# model = YoloWrapper(load_yolo(device=device))
+
+# model = "yolo"
+model = "resnet"
+
+if model == "yolo":
+    model = YoloWrapper(load_yolo(device=device))
+    apply_softmax = False
+else:
+    model = load_resnet50(device=device)
+    apply_softmax = True
 
 # get features
-features, labels = get_uncertainty_features(model, calib_loader, device=device, verbose=True)
+features, labels = get_uncertainty_features(
+    model, calib_loader, apply_softmax=apply_softmax, device=device, verbose=True
+)
+
+# get counts
+labels.unique(return_counts=True)
 
 # Train model on the features
 clf = BalancedRandomForestClassifier(n_jobs=-1, random_state=random_state)
@@ -43,7 +56,9 @@ train_preds = clf.predict(features)
 confusion_matrix(labels, train_preds)
 
 # get test features
-test_features, test_labels = get_uncertainty_features(model, test_loader, device=device, verbose=True)
+test_features, test_labels = get_uncertainty_features(
+    model, test_loader, apply_softmax=apply_softmax, device=device, verbose=True
+)
 
 # Predict on the test set
 test_preds = clf.predict(test_features)
