@@ -1,3 +1,7 @@
+"""
+This script trains the MNIST model.
+"""
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -18,10 +22,12 @@ save_name = "mnist"
 # Set variables and random seeds
 random_state = 123
 device = torch.device("mps")
-set_all_seeds(random_state)
+g = set_all_seeds(random_state)
 
 # Load data
-(train_loader, test_loader), (train_dataset, test_dataset) = load_mnist(batch_size=512)
+(train_loader, val_loader, test_loader), (train_dataset, val_dataset, test_dataset) = load_mnist(
+    batch_size=128, return_val=True, generator=g
+)
 
 # Initialise model
 model = MNISTNet()
@@ -34,14 +40,14 @@ model = train_model(
     loader=train_loader,
     criterion=criterion,
     optimizer=optimizer,
-    n_epochs=5,
+    n_epochs=3,
     device=device,
 )
 
 # Evaluate model
 print(
     f"MNIST Model Test Accuracy: {
-        evaluate_model(model ,test_loader, device=device):.4f
+        evaluate_model(model ,test_loader, device=device, verbose=True):.4f
     }"
 )
 
