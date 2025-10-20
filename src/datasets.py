@@ -123,6 +123,34 @@ def load_mnist(batch_size=128, generator=None, return_val=False, download=True):
     return (train_loader, test_loader), (train_dataset, test_dataset)
 
 
+def load_fashion_mnist(batch_size=128, generator=None, return_val=False, download=True):
+    """
+    Function to load the fashion mnist data.
+
+    Returns (train_loader, test_loader), (train_dataset, test_dataset)
+
+    If return_val=True:
+        Returns (train_loader, val_loader, test_loader), (train_dataset, val_dataset, test_dataset)
+    """
+
+    from torch.utils.data import DataLoader, random_split
+    import torchvision.transforms as transforms
+    from torchvision.datasets import FashionMNIST
+
+    transform = transforms.Compose([transforms.ToTensor()])
+    train_dataset = FashionMNIST(root="data/", transform=transform, download=download)
+    test_dataset = FashionMNIST(root="data/", transform=transform, download=download, train=False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, generator=generator)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size)
+
+    if return_val:
+        val_dataset, test_dataset = random_split(test_dataset, lengths=[0.5, 0.5], generator=generator)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, generator=generator)
+        return (train_loader, val_loader, test_loader), (train_dataset, val_dataset, test_dataset)
+
+    return (train_loader, test_loader), (train_dataset, test_dataset)
+
+
 def load_cifar(batch_size=128, generator=None, download=True):
     """
     Function to load the CIFAR data.
