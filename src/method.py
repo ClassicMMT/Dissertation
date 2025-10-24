@@ -281,7 +281,7 @@ def get_uncertainty_features(
     trained_model, loader, return_loader=False, apply_softmax=True, verbose=False, device="mps"
 ):
     """
-    An implementation of Functions 1 and 2, required for Algorithm 4.
+    An implementation of Function 1, required for Algorithm 4.
 
     Returns (features, labels)
 
