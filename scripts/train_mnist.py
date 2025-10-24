@@ -5,7 +5,6 @@ This script trains the MNIST model.
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 from src.utils import (
     set_all_seeds,
     train_model,
@@ -35,14 +34,8 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # Train model
-model = train_model(
-    model,
-    loader=train_loader,
-    criterion=criterion,
-    optimizer=optimizer,
-    n_epochs=3,
-    device=device,
-)
+model = train_model(model, loader=train_loader, criterion=criterion, optimizer=optimizer, n_epochs=3, device=device)
+
 
 # Evaluate model
 print(
