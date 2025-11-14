@@ -1,0 +1,645 @@
+
+% --------------------------------------------------------------------------------------
+%                   LATEX TEMPLATE FOR DISSERTATION (HONS)
+% --------------------------------------------------------------------------------------
+\documentclass[11pt]{book}
+
+\usepackage{amsfonts, amsmath, amssymb}  
+\usepackage{times}
+%\usepackage{hyperref}
+\usepackage{wrapfig}
+\usepackage[numbers]{natbib}
+\usepackage{graphicx}
+
+%\usepackage[backref=page,pagebackref=true,linkcolor = blue,citecolor = red]{hyperref}
+%\usepackage[backref=page]{backref}
+
+
+
+\DeclareGraphicsExtensions{.pdf,.png,.jpg}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+
+\setlength{\oddsidemargin}{1.5cm}
+\setlength{\evensidemargin}{0cm}
+\setlength{\topmargin}{1mm}
+\setlength{\headheight}{1.36cm}
+\setlength{\headsep}{1.00cm}
+%\setlength{\textheight}{20.84cm}
+\setlength{\textheight}{19cm}
+\setlength{\textwidth}{14.5cm}
+\setlength{\marginparsep}{1mm}
+\setlength{\marginparwidth}{3cm}
+\setlength{\footskip}{2.36cm}
+
+
+\begin{document}
+\pagestyle{empty}
+
+%: ----------------------------------------------------------------------
+%:                  TITLE PAGE: name, degree,..
+% ----------------------------------------------------------------------
+
+
+\begin{center}
+
+\vspace{1cm}
+
+%%% Type the thesis title below%%%%%%%%%%%%%%%%
+{\Huge         Exploration of Adversarial Sub-Spaces}
+
+\vspace{35mm} 
+
+\includegraphics[width=2cm]{images/logo.jpg}
+
+ \vspace{45mm}
+
+%%%%%Type Your Name Below%%%%%%%%%%%%
+{\Large       Peter Orlovskiy}
+
+	\vspace{1ex}
+
+School of Computer Science
+
+The University of Auckland
+
+	\vspace{5ex}
+
+ %%%%%Typing Your Supervisors Name Below%%%%%%%%%%%%
+Supervisor:             Joerg Wicker
+
+	\vspace{30mm}
+
+A dissertation  submitted in partial fulfillment of the requirements for the degree of Master of Data Science, The University of Auckland, 2025.
+
+\end{center}
+
+
+\newpage
+
+
+
+%: --------------------------------------------------------------
+%:                  FRONT MATTER:  abstract,..
+% --------------------------------------------------------------
+\chapter*{Abstract}       
+\setcounter{page}{1}
+\pagestyle{headings}
+% \pagenumbering{roman}
+
+\addcontentsline{toc}{chapter}{Abstract}
+
+
+
+
+
+
+%: --------------------------------------------------------------
+%:                  END:  abstract
+% --------------------------------------------------------------
+
+
+
+%: ----------------------- contents ------------------------
+\setcounter{secnumdepth}{3} % organisational level that receives a numbers
+\setcounter{tocdepth}{3}    % print table of contents for level 3
+\tableofcontents            % print the table of contents
+% levels are: 0 - chapter, 1 - section, 2 - subsection, 3 - subsection
+
+
+
+%: --------------------------------------------------------------
+%:                  MAIN DOCUMENT SECTION
+% --------------------------------------------------------------
+	
+\chapter{Introduction}
+
+Uncertainty quantification in model development, whether it is a statistical or a machine learning model, is critical, since the data the model is developed on is always limited. This means that that the the decision function a model learns is based on incomplete information and therefore it is crucial to be able to quantify and understand the uncertainty surrounding a prediction.
+
+
+
+
+It is without question that artificial intelligence, or machine learning more concretely, has changed the course of human history.  From biological research, to finance, to political polling, to writing, and to classroom education, the impact has been enormous. The past few decades, in particular, have had many successes. Starting in 1986, the back-propogation algorithm was invented which allowed gradient based training of neural networks \cite{backpropogation}. In 2012, AlexNet \cite{alexnet}, significantly improved image classification performance on the 1000-class ImageNet dataset \cite{deng2009imagenet}. In 2015, a reinforcement-learning model, AlphaGo, defeated the world Go champion Lee Sedol \cite{alphago}. In 2017, the transformer \cite{vaswani2023attentionneed} architecture was released which enabled models such as ChatGPT \cite{gpt1, gpt2, gpt3} and BERT \cite{devlin2019bert}. In 2021, AlphaFold \cite{alphafold}, essentially solved the protein-folding problem, previously considered intractable, revolutionising structural biology.
+
+
+
+The current rise of artificial intelligence has also been fueled by a huge increase in commercial applications with companies such as OpenAI and Anthropic attracting huge investments. With available capital, come large and expensive models such as Meta's 405-billion parameter large language model which was trained on 16,000 H100 GPUs \cite{llama_meta_ai} with energy costs alone making up an estimated \$60 million USD \cite{llama_power_cost}. However, while developing state-of-the-art models typically requires world-class academics and researchers, with the significant increase in computing power and the open development and release of frameworks like PyTorch \cite{pytorch}, training machine learning models is easier than ever. 
+
+A huge amount of models are now being created across all fields such as eCommerce, agriculture, aquaculture, weather modelling, government, etc., and these models help automate a large number of previously tedious or intractable problems. However, as they say, with great power comes great responsibility for not just performant, but also reliable, robust, and trustworthy models. This is especially true in critical fields such as healthcare, finance, or self-driving vehicles, where the impact of incorrect automated decision making can be catastrophic and potentially result in the loss of human life. 
+
+Developing safe models is easier said than done, however, since \cite{szegedy2014intriguingpropertiesneuralnetworks} showed that machine learning models are susceptible to adversarial attacks - visually-identical constructed inputs on which models mis-perform; three examples are shown in Fig. \ref{fig:adversarial_attacks}. Although these attacks are constructed by researchers with the intent to fool the models, it is a crucial security risk, nevermind that it is possible that such adversarial examples exist in the ``wild''. For example, previous research found that stop signs can be categorised as stop signs if real (small) stickers are placed on them \cite{stopSignMisclassified}. However, stickers are not always stuck on stop signs by researchers, but possibly by individuals for their own entertainment. This is why it is crucial for machine learning practitioners to understand how their models work, when their models work, and why their models work and, perhaps most importantly, how, when, and why their models do \textit{not} work.
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+ \vspace{-0pt}
+ \includegraphics[scale=0.5]{images/stop_sign.png}
+ \centering
+ \caption{Incorrectly classified stop sign with high-confidence. Adapted from \cite{stopSignMisclassified}}
+ \label{fig:stop}
+ \vspace{-10pt}
+\end{wrapfigure}
+
+% On a high level, machine learning falls into three main buckets - supervised learning, unsupervised learning, and reinforcement learning. In short, supervised learning has inputs and targets, unsupervised learning has just inputs (with no targets), and reinforcement learning learns by interacting with an environment, receiving feedback (rewards/penalties) and trying to maximise the rewards. Supervised learning can be further split into regression and classification. Regression is where the targets are numeric/continuous and classification is where the targets are class labels; for example, dog or cat. This paper focuses on supervised classification since a ``successful'' adversarial example leads to misclassification but with regression it is more ambiguous. 
+
+
+
+
+
+
+
+
+
+
+
+\section{Uncertainty Quantification}
+
+The point of (supervised) machine learning, in practice, is to be able to develop a model which ``learns'' a decision function. This model can then be given inputs and, through the learnt decision function, the model is able to make a prediction about what the corresponding labels should be. 
+
+However, evaluating the quality of the predictions in reality can be difficult since one often does not have the corresponding targets for the test set; if targets were always available, we would not need machine learning models. Therefore, being able to quantify uncertainty becomes essential, as it provides model practitioners the ability to understand the reliability of their predictions and to determine whether the outputs that the model is producing may not be applicable, i.e., the model is operating outside of the domain it has been trained on. 
+
+For example, if a model has been trained to classify images of cats and dogs, then given an image of a shark, the model will still predict a cat or a dog although, obviously, this is incorrect. Likewise, if a self-driving car model was trained on videos during sunny days and clear nights, it may not respond as well to rarer conditions such as fog or smog. Another problem is that machine learning models are often highly confident in their predictions and are generally unable to abstain from making a prediction; most of the time they are not even designed for this to be possible.
+%Finally, models' predicted probabilities are also typically not well-calibrated, meaning that the predicted probabilities do not reflect the true likelihood of outcomes. 
+
+Because of this, whenever a machine learning model makes a prediction, it is important to critically assess its reliability. Important questions include: does the model have sufficient capacity to make this prediction? Is the prediction within the domain of data the model has seen, or is it an out-of-distribution case where the model may be prone to error? How reliable is the prediction, and what metrics or uncertainty estimates can help quantify this reliability? Finally, is the model’s reported confidence well-calibrated, or is it overconfident in cases where uncertainty is actually high?
+
+Answering these questions is much more difficult and therefore it is important to be able to quantify a model's uncertainty in its predictions, as this can serve as another tool informing the practitioner of both the quality of the model and the model's outputs. 
+
+
+\section{Applicability Domain}
+
+In summary, given that a model has predicted a label, it is important to assess whether this prediction is applicable, reliable, and decideable. 
+
+
+
+
+
+
+
+
+
+
+
+While these problems are significant, progress has been made towards addressing these shortcomings.
+
+There is a significant body of literature examining how one can make a machine learning model reject making a prediction \cite{rejection_survey, geifman2017selective} when the model is not confident enough to make it or it falls outside of its applicability domain.
+
+work has been done on how one can calibrate the confidence corresponding to predictions \cite{confidence_calibration, silva2023classifier}.
+
+In fact, significant work has been done for both 
+
+Even an untrained machine learning model will always generate some sort of prediction.
+
+
+
+\section{Adversarial Learning}
+
+\section{Problem Definition}
+
+\section{Dissertation Layout}
+
+\chapter{Background}
+
+\section{Formal Definitions}
+
+Formally, for an input/feature vector $X_i \in \mathbb{R}^k$ where $k$ is the dimensionality (i.e. number of pixels in an image) there is a corresponding label $y_i$ for $i\in 1,..,n$ where $n$ is the number of examples.
+
+\section{Uncertainty}
+
+\subsection{Entropy}
+
+Types: Aleatoric vs. epistemic
+Common measures: entropy, information gain, confidence scores, bayesian methods
+
+
+
+
+\subsection{Information Content}
+
+\subsection{Conformal Prediction}
+
+Another way of quantifying uncertainty can be through conformal prediction \cite{conformal_prediction_original_ref}, which is a rigorous form of uncertainty quantification that provides a statistically-guaranteed procedure for finding reliable measures for predictions made by machine learning models. Conformal prediction does not rely on any model or dataset, meaning that it is model and dataset agnostic, allowing it to be used for almost any problem with minimal restrictions. 
+
+The purpose of conformal prediction is, typically, to generate prediction sets which have the guarantee that the probability of the true label being within these prediction sets is bounded below and above. This property is called the coverage. Given a pre-specified confidence level, the confidence level is used to calculate bounds within which the probability falls. 
+
+probability and a slightly adjusted pr
+
+a pre-specified probability. This allows 
+
+This allows 
+
+is a rigorous form of uncertainty quantification that does not rely on model or dataset assumptions, meaning that it can be used for any model or any dataset, with minimal restrict
+
+The procedure provides theoretical guarantees such as "the true prediction falls within some set C". 
+
+Using conformal prediction, we can obtain prediction sets which give statistical coverage guarantees, where coverage means 
+
+
+
+
+\section{Applicability Domain}
+\label{sec:applicability_domain}
+
+* Origin in cheminformatics/QSAR
+* Extension to ML models
+
+The applicability domain defines the regions where the chosen model evaluation metric is trustworthy. For example, within the valid range of the data, them metric may be trustworthy but distance metrics outside this range may no longer be trustworthy.
+
+
+
+
+\section{Abstention}
+\label{sec:abstention}
+
+* selective classification, reject option classifiers, confidence calibration, abstention using c
+
+\section{Adversarial Leaning}
+
+\subsection{Adversarial Attacks}
+
+In general, an adversarial example $\mathbf{x'}=\mathbf{x}+\boldsymbol{\eta}$ is an altered version of an input $\mathbf{x}$, with adversarial noise $\boldsymbol{\eta}$, generated by an adversarial attack $g$, given to a machine learning model $f$, which causes the model to perform worse. How the model "performs worse" depends on the task; typically, adversarial literature has focused on classification and while it is possible (and sometimes trivial) to adapt these adversarial attacks for regression tasks, the results are typically less interesting. This is because in classification, an adversarial example is successful if $f(\mathbf{x}+\boldsymbol{\eta}) \ne f(\mathbf{x}) = y$, where $y$ is the true label. However, in regression tasks, $y$ is a continuous value, so we may have higher mean squared error (MSE) with the adversarial example, but it's, perhaps, less obvious that the performance is much worse.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/adversarial_attacks.png}
+    \caption{Adversarial examples on the MNIST dataset. The top row shows the original examples, the titles contain the original labels, the second row shows the (exaggerated) noise, $\eta$, and the third row shows the adversarial examples. Note that the model originally classified these original examples correctly}
+    \label{fig:adversarial_attacks}
+\end{figure}
+
+Typically, adversarial examples can be categorised into two main buckets, poisoning and evasion \cite{wild_patterns}. The former "poisons" the training data to compromise normal model function. This means that given unaltered, normal examples at test time, the model will either perform worse, have an implanted back-doors or trojans etc. The importance of mitigating such attacks can not be understated. On the other hand, evasion attacks, do not compromise normal model function, but focus on generating adversarial examples which make a classifier misclassify. These can be anything from specially crafted noise \cite{carlini_wagner, goodfellow2015} to adversarial patches \cite{adversarial_patches} and can be very effective.
+
+Adversarial attacks can also be targeted (see \cite{carlini_wagner}) or untargeted (see \cite{goodfellow2015}). An untargeted attack is one such that $f(\mathbf{x})=y \ne f(\mathbf{x}+\boldsymbol{\eta})$, and a targeted attack is when we have a target class $t$ and an example is adversarial if $f(\mathbf{x})=y$ and $f(\mathbf{x} +\boldsymbol{\eta})=t$. This work focuses on the latter since we are not interested in the attacks themselves here, but are more interested in the regions that these attacks are found.
+
+Trivial examples of inputs causing a model to misclassify are not hard to come up with. For example, if $f(\mathbf{x})$ outputs "dog", then creating $\mathbf{x'} = \mathbf{0}$, i.e. setting all pixels to black, will make any classifier "misclassify". However, examples like this are not interesting because even a human would then "misclassify" them. Thus, the examples we are actually interested in are those where a human would have no problem making a correct classification. Because of this, adversarial literature has typically focused on adversarial attacks imperceptible to the human eye. 
+
+Formally, we define an adversarial attack as a procedure (could be an algorithm or another model), $g$, such that $g(\mathbf{x})=\boldsymbol{\eta}$, producing the input perturbation $\boldsymbol{\eta}$, which produces an adversarial example:
+
+\begin{equation}
+    \mathbf{x'} = \mathbf{x} + \boldsymbol{\eta}
+\end{equation}
+
+such that $f(\mathbf{x'}) \ne f(\mathbf{x})$, for classifier $f$. To make such perturbations indistinguishable for humans, mathematically, the perturbations are constrained to be within a magnitude $\epsilon$ and are typically constrained using the L1 norm:
+
+\begin{equation}
+\label{eq:l1norm}
+    ||\mathbf{x'} - \mathbf{x}||_1 = \sum_{i=1}^k |x_i - x_i'| < \epsilon
+\end{equation}
+
+the L2 norm:
+
+\begin{equation}
+\label{eq:l2norm}
+    ||\mathbf{x'} - \mathbf{x}||_2 = \sum_{i=1}^k (x_i - x_i')^2 < \epsilon
+\end{equation}
+
+the $\text{L}_\infty$ norm:
+
+\begin{equation}
+\label{eq:linfnorm}
+    ||\mathbf{x'} - \mathbf{x}||_\infty = \max_i |x_i-x_i'| < \epsilon
+\end{equation}
+
+for some small $\epsilon$.
+
+\subsubsection{FGSM}
+\label{sec:fgsm_attack}
+
+The Fast Gradient Sign Method (FGSM) was introduced by Goodfellow in \cite{goodfellow2015}. The attack takes the model parameters $\boldsymbol{\theta}$, the input $\mathbf{x}$, and the target $y$ and computes the gradient of the loss W.R.T. the input $\mathbf{x}$ to obtain an adversarial perturbation:
+
+\begin{equation}
+    \boldsymbol{\eta} = \epsilon\times \text{sign}(\nabla_{\boldsymbol{x}} J(\boldsymbol{\theta}, \mathbf{x}, y))
+\end{equation}
+
+Where $\epsilon$ is some small value. This perturbation is then added to the input to obtain the adversarial example $\mathbf{x'}=\mathbf{x} + \boldsymbol{\eta}$. Note that $\mathbf{x'}$ is typically clipped so that its feature values do not exceed the boundaries of the data; i.e., clipped to be within [0, 1] for [0, 1]-scaled images.
+
+\subsubsection{BIM}
+
+The Basic Iterative Method (BIM) was introduced by Kurakin in \cite{bim_paper} and extends the attack in section \ref{sec:fgsm_attack} with another parameter $\alpha$ to make the attack iterative. The number of iterations is typically computed as $T=\epsilon / \alpha$. The attack begins with initialising the adversarial example to $\mathbf{x'}_0=\mathbf{x}$, and then iteratively computes:
+
+\begin{equation}
+\mathbf{x'}_{t+1} = \text{clip}\left( 
+    \mathbf{x'}_t + \alpha \times \text{sign}(\nabla_{\boldsymbol{x}} J(\boldsymbol{\theta}, \mathbf{x'}_t, y)) 
+    \right)
+\end{equation}
+
+Where clip is the function described in section \ref{sec:fgsm_attack} to ensure that the example remains inside the valid input space. 
+
+\subsubsection{DeepFool}
+
+
+
+\subsection{Identification Attempts}
+
+\subsection{Robustness and Uncertainty}
+
+How robustness is achieved and how uncertainty quantification fits into this.
+
+
+\section{Summary}
+
+Why your work fills the gaps
+* no research uses applicability domain elsewhere
+* uncertainty is used to optimise adversarial attacks but not to catch them
+* etc
+
+
+
+\section{Distribution Shifts ***}
+\label{sec:distribution_shifts}
+
+A common problem in developing machine learning models is that the training distribution is not representative of the test distribution. An example with self-driving cars is that cars may be trained on day and night images and videos, but in reality there are weather conditions such as rain, fog, smog, snowfall etc. which change the test distribution and cause the model perform poorly. In the literature, there are three main types of distribution shift:
+
+\begin{itemize}
+    \item \textbf{Label shift} - occurs when the distribution of the labels $P(Y)$ changes but $P(Y|X)$ remains the same. Since this type of shift involves changing the label distribution in the test set (the training data does not change), this paper does not consider this type of shift. This is because if the model is able to classify all categories during training well, then if the label distribution changes, intuitively, the model should continue to perform well.
+    
+    \item \textbf{Concept shift} - occurs when the relationship between the features and labels, $P(Y|X)$, has changed. This type of shift means that the rules for predicting $Y$ from given $X$ has changed. This means the original classifier is no longer valid and a new classifier is needed, since the classifiers job is to learn the function that predicts $Y$ from $X$. Therefore, this work also does not consider this type of shift since, even though this is a valid real-life problem, in reality it's more often important to recognise when such a shift occurs and retrain the model.
+    
+    \item \textbf{Covariate shift} - occurs when the distribution of the input features $P(X)$ changes, but the relationship between the features and labels, $P(Y|X)$, remains the same. This is the type of shift that will be explored in this paper. Transformation which can induce covariate shift are adding bias, scaling, or inducing correlations in the test set.
+\end{itemize}
+
+
+
+
+
+
+
+
+
+\section{Distance Metrics ***} 
+
+\subsection{Mean Sum of Squares}
+
+Perhaps the most straightforward metric to compute the distance between an original and an adversarial example is the sum of squares across their common dimensionality $k$:
+
+\begin{equation}
+    SS(X, X') = \sum_{i=1}^k (X_i - X_i')^2 = ||\mathbf{X}-\mathbf{X'}||_2
+\end{equation}
+
+However, the problem is that as $k$ increases, the distance increases proportionally. Therefore, we can consider a normalised metric:
+
+\begin{equation}
+    SS'(X, X') = \frac{1}{k}\sum_{i=1}^k (X_i - X_i')^2 = \frac{1}{k}||\mathbf{X}-\mathbf{X'}||_2
+\end{equation}
+
+However, the new problem is that some dimensions may have much higher variance and therefore $SS'$ would be biased towards these features. Thus, we define a variance-normalised distance metric:
+
+\begin{equation}
+\label{eq:single_point_mse}
+    d(X, X') 
+    = \frac{1}{k}\sum_{i=1}^k \frac{(X_i - X_i')^2}{\sigma_i^2} 
+    = \frac{1}{k}(\mathbf{X} - \mathbf{X'})^T \boldsymbol{\Sigma}^{-1} (\mathbf{X} - \mathbf{X'})
+\end{equation}
+
+Where $\boldsymbol{\Sigma}=\text{diag}(\sigma_1^2, ..., \sigma_k^2)$ is the diagonal of the covariance matrix of $X$. Finally, since we are interested in many points, not just one, we can take the mean of Eq. \ref{eq:single_point_mse}:
+
+\begin{equation}
+\label{eq:final_mse}
+    D(\mathbf{X}, \mathbf{X'}) 
+    = \frac{1}{n} \sum_{j=1}^n d(X_j, X_j')
+\end{equation}  
+
+
+
+
+\subsection{Wasserstein Distance}
+
+TO BE COMPLETED.
+
+\section{Projections ***}
+
+In machine learning tasks, data is often high dimensional (i.e., $X_i \in \mathbb{R}^k$ for $k>>2$) and difficult to visualise and understand. This makes it difficult to get a sense of how well the model is performing; whether the model is overfit or not, or whether the data is linearly separable or not. 
+
+Because of this, data is often projected onto a lower-dimensional space using dimensionality reduction techniques such as Principal Component Analysis (PCA), t-Distributed Stochastic Neighbour embedding (t-SNE), or Uniform Manifold Approximation and Projection (UMAP).
+
+\subsection{UMAP}
+
+TO BE COMPLETED.
+
+
+
+
+
+
+
+
+
+\chapter{Methodology}
+
+
+
+
+
+
+
+
+\section{Theoretical Foundation}
+
+\subsection{Uncertainty Measures}
+
+Define entropy, information content, and other uncertainty measures used.
+
+\subsubsection{Entropy}
+
+
+
+The output of a neural network is typically a matrix of logits, with rows corresponding to the batch size and columns to the number of classes. Logits are the un-normalised outputs of a neural network's final layer, which can be converted to probabilities (using softmax) or, perhaps more commonly, the index of the maximum value in each row is taken as the predicted class.
+
+Previous literature has explored the use of these logits for confidence calibration to align the predicted probabilities (i.e. softmax over the logits) with the true likelihood of correctness \cite{confidence_calibration}. 
+
+The work in \cite{logit_dist_adv_trained_dnn} examined the logit-distributions of adversarially-trained deep neural networks (DNN), finding that standard DNNs have a more spread distribution of ``logit gaps'' (difference between the highest and second highest logits) and that adversarial training \cite{goodfellow2015} (training DNN on standard and adversarial examples) increases these logit gaps \cite{logit_dist_adv_trained_dnn}; i.e., the distribution of the logit gaps becomes less spread, with lower mean, with a stronger positive skew, leading to less confident predictions and more effort by the model to learn the true underlying features. The implication is that, since the logit gap is smaller, if the logits become more uniform then the entropy of the predictions should be higher. As an aside, formally, entropy measures the average uncertainty and is defined as:
+
+\begin{equation}
+\label{eq:entropy}
+    \text{entropy}(\mathbf{p}) = -\sum_{i=1}^C p_i \log (p_i)
+\end{equation}
+
+\noindent where $C$ is the number of classes and $p_i = \frac{\exp(z_i)}{\sum_{i=1}^C \text{exp}(z_i)}$ is the predicted probability of class $i$, where $z_i$ are the logits. Likewise, the multi-class no-reduction cross-entropy loss is defined as:
+
+\begin{equation}
+\label{eq:crossentropyloss}
+    \text{Cross Entropy} = -\sum_{i=1}^C \mathbf{1}\{i=y\} \log(p_i)
+\end{equation}
+
+\noindent where $\mathbf{1}\{\cdot\}$ is the indicator function, $y$ is the true label for the example, and $p_i$ is the predicted probabilities. Note that Eq. \ref{eq:crossentropyloss} is for a \textit{single} example. For multiple examples, typically the ``mean'' reduction is used, where the cross entropy is calculated for all examples in a batch and then averaged.
+
+The distribution of logits may also vary depending on the examples. Intuitively, since the purpose of an adversarial attack is to move examples across the decision boundary, the examples should end up crossing the boundary or at least get closer to it. Since a decision boundary is where the logits of a model are equal, at least between the two classes on both sides of the boundary, this means that adversarial attacks generally push examples towards a higher loss. Looking at Equations \ref{eq:crossentropyloss} and \ref{eq:entropy}, we see that the cross entropy function is very similar to the entropy, except that the cross entropy function takes only the correct class' log-probability and the entropy takes a predicted-probability weighted sum of the log-probabilities. Eq. \ref{eq:crossentropyloss} is small when the predicted probability for the correct class is close to 1 and Eq. \ref{eq:entropy} is small when one class dominates the logits. This means if cross entropy is the loss used, there is an inherent relationship between the loss and the entropy function. 
+
+By this rational, the location of adversarial examples in the feature space indicates regions where the loss and entropy are both high, and due to the proximity of the decision boundary, the model's predictions should not be confident. The advantage of using the entropy defined in Eq. \ref{eq:entropy} is that we do not need the true class labels; entropy can be computed just from having the logits $z_i$. This is convenient for test sets for which no true class labels exist and we are only able to calculate the entropy.
+
+\subsubsection{Applicability Domain}
+
+Formalise the applicability domain framework for ML models. 
+
+* What does it mean (for the purposes of this work to accept or reject a predcition?)
+
+\subsection{Proposed Approaches}
+
+\subsubsection{Abstention Strategy}
+
+* Uncertainty-based Abstention Strategy using entropy and conformal prediction guarantees
+
+\subsubsection{Identification Strategy}
+
+* Uncertainty-based Identification Strategy
+
+\subsubsection{Applicability domain}
+
+* how the previous two subsubsections fit into the applicability domain framework.
+
+
+\section{Experimental Setup}
+
+This section is broken up into multiple parts. First, there is a discussion on the datasets used, followed by an explanation of models and their architecture. Then, THERE IS THE DISTANCE SECTION FOLLOWED BY THE ADVERSARIAL REGION SECTION.
+
+This work uses Scikit-Learn (REFERENCE), PyTorch \cite{pytorch} and the datasets described below. Since this work is interested in exploring model quality rather than tuning hyperparameters, it is deemed that typical model selection strategies such as cross-validation or a separate validation set are unnecessary, since all experiments make use only of the training set. 
+
+All models are trained on the training set and adversarial examples generated from the training set only. The models nor attacks see the test set directly nor indirectly. However, models are evaluated for their performance using the test set and whether a model is overfit is determined by the test set.
+
+The results in Chapter \ref{cha:results} were obtained using an M4 Max GPU. THE CODE IS AVAILABLE HERE.
+
+
+\subsection{Datasets}
+
+Please note that unless otherwise specified, all datasets are scaled using [0, 1]-scaling with the following formula:
+
+\begin{equation}
+    X_j = \frac{X_j - \text{max}(X_j)}{\text{max}(X_j) - \text{min}(X_j)}
+\end{equation}
+
+for feature $j$.
+
+\subsubsection{MNIST}
+
+MNIST is a famous dataset of 70,000 grayscale examples of handwritten digits. Containing digits from 0 to 9 with each image being of size 28 $\times$ 28, width and height respectively. Since the images are grayscale, there is no colour and consequently there is only one colour dimension. The dataset is pre-split into 60,000 training points and 10,000 test points. Some examples can be seen in the top row of Fig. \ref{fig:adversarial_attacks}.
+
+The MNIST dataset is popular because of its simplicity, balanced class distribution, and ease of training. It is quite trivial to obtain a test accuracy of 98\%+ on MNIST.
+
+No pre-processing was done except convert the PIL images to tensors for use with PyTorch. MNIST images are already normalised with pixel values within [0, 1]. 
+
+
+\subsubsection{SpamBase}
+
+The SpamBase dataset \cite{spambase_94} is a spam classification task. There are 4,140 examples in total, with 1,630 spam and 2,510 non-spam. There are 57 numeric features and all are engineered variables. Some examples of the features are the character frequencies of certain symbols (such as !, \$, and \#), words, or longest running sequence of capital letters etc. See \cite{spambase_94} for a full description.
+
+For preprocessing, Scikit-Learn is used to make training and testing splits, the data is min-max scaled so that all columns are within [0, 1]. The scaler is fit on the training set and the test set is transformed using the learned parameters.
+
+In some experiments, a covariate shift (see \ref{sec:distribution_shifts}) is induced. The process for this is as follows: $k$ features are selected for inducing a covariate shift ($k=57$ unless otherwise specified). Each feature is randomly allocated to have an additive or multiplicative shift applied. For an additive shift, the product of an "intensity" parameter and each features standard deviation is applied. For a multiplicative shift, each column is multiplied by "intensity" plus 1. The effect of a covariate shift can be seen in Fig. \ref{fig:induced_covariate_shift}.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/induced_covariate_shift_spambase.png}
+    \caption{UMAP Projection of an induced covariate shift on the SpamBase dataset.}
+    \label{fig:induced_covariate_shift}
+\end{figure}
+
+\subsubsection{Heloc}
+
+\subsubsection{ImageNet}
+
+
+\subsection{Models}
+
+\subsubsection{SpamBase}
+
+All SpamBase models had the same architecture. The models differed in the amount of training done and the parameters used.
+
+The architecture for all models was the following. The network had three linear layers with weights tensors of size 57x128, 128x32, and 32x2. The linear layers were separated by ReLU and the cross entropy loss was used. Adam was used as an optimizer with all default parameters. A learning rate of 0.01 was used.
+
+Two models were trained and the training cutoffs were determined using Fig. \ref{fig:spambase_train_test}. The standard model was trained until 60 epochs and the overfit was trained until 400 epochs. Since this paper is not about training the best possible model, it is logical that validating using the test set directly was enough and cross validation was not required to decide on a model, since we are exploring the properties of overfit models. The results are summarised in Table \ref{tab:spambase_training}.
+
+\begin{table}[h!]
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+         & Normal & Overfit \\ 
+         \hline
+        Epochs & 60 & 400 \\ 
+        \hline \hline
+        Train & 98.86\% & 99.59\% \\ \hline
+        Test & 95.23\% & 94.58\% \\ \hline
+    \end{tabular}
+    \caption{Model training results on the SpamBase dataset.}
+    \label{tab:spambase_training}
+\end{table}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{images/spambase_train_test.png}
+    \caption{Training and Test Accuracy by Epoch for network trained on the SpamBase dataset. The dashed blue vertical lines show where the normal and overfit models were trained up to.}
+    \label{fig:spambase_train_test}
+\end{figure}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\chapter{Results}
+\label{cha:results}
+
+\section{Model Performance}
+
+* The performance of the different models used.
+
+\section{Abstention for Accuracy Improvement}
+
+* apply abstention with entropy, information content etc.
+* coverage vs. accuracy
+* compare against a baseline - confidence thresholding
+
+
+\section{Adversarial Identification}
+
+* ROC, AUC, precision-recall metrics
+* compare with existing adversarial detection methods
+
+\section{Applicability Domain Integration}
+
+
+
+
+
+
+
+
+\chapter{Discussion}
+
+* strengths and limitations of uncertainty measures
+    - doesn't work as well on imagenet?
+* when abstention helps most
+* when the adversarial detection works (and fails)
+* how applicability domains shift the reliability story
+
+* compare against related work
+* theoretical implications
+
+\chapter{Conclusions}
+
+
+
+
+		
+			
+% --------------------------------------------------------------
+
+% --------------------------------------------------------------
+\renewcommand{\bibname}{References} % changes the header; default: Bibliography
+% \bibliographystyle{plainnat}
+\bibliographystyle{unsrtnat}
+\bibliography{Bibliography}
+
+
+\appendix%%% start appendices here 
+
+
+
+
+\end{document}
