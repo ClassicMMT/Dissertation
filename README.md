@@ -4,6 +4,7 @@ This repo contains the implementation of the method proposed in my dissertation 
 
 The repository is structured as follows in order of importance:
 
+- tex - contains the .tex files of the dissertation. `dissertation06.tex` is the current working version.
 - src - all of the functional code including the method implementation, models, and other utily scripts.
 - requirements.txt - the requirements necessary to run the files.
 - result_scripts - the scripts used to generate plots and tables found in results.
