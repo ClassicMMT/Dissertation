@@ -481,12 +481,10 @@ Figure \ref{fig:chessboard_training} shows the training and test accuracies by e
 
 
 
-Figure \ref{fig:chessboard_training_boundaries} shows the decision boundaries learned for every 10th epoch, the same epochs as in Figure \ref{fig:chessboard_training}. The title for each facet shows the epochs trained and the corresponding test accuracy. 
-
-Figure \ref{fig:chessboard_training_boundaries} shows that effective decision boundaries start being learned at epoch 30, which continues up to and including epoch 50 and then starts overfitting, which is consistent with the vertical line in Figure \ref{fig:chessboard_training}. Here, it is easy to tell that the model is overfitting because instead of learning diagonal decision boundaries, the model starts wrapping some clusters inside their own decision boundary; this behaviour is most evident for epoch 100. However, with just the training/test accuracy, seen in Figure \ref{fig:chessboard_training}, understanding the shape of the boundary is much harder.
+Figure \ref{fig:chessboard_training_boundaries} shows the decision boundaries learned for every 10th epoch, the same epochs as in Figure \ref{fig:chessboard_training}. The title for each facet shows the epochs trained and the corresponding test accuracy. Figure \ref{fig:chessboard_training_boundaries} shows that effective decision boundaries start being learned at epoch 30, which continues up to and including epoch 50 and then starts overfitting, which is consistent with the vertical line in Figure \ref{fig:chessboard_training}. Here, it is easy to tell that the model is overfitting because instead of learning diagonal decision boundaries, the model starts wrapping some clusters inside their own decision boundary; this behaviour is most evident for epoch 100. However, with just the training/test accuracy, seen in Figure \ref{fig:chessboard_training}, understanding the shape of the boundary is much harder.
 
 
-\begin{figure}
+\begin{figure}[h]
     \centering
     \includegraphics[width=1.0\textwidth]{images/chessboard_training_boundaries.png}
     \caption{Decision boundaries for every 10 epochs trained. Note that the test points are plotted for visibility.}
@@ -520,7 +518,7 @@ Figure \ref{fig:chessboard_four_classes_loss_entropy_information_gaps} shows the
 
 Given a point, if the two highest predicted probabilities for this point are the same, then the point lies on the boundary between two of the four classes. Referring to Fig. \ref{fig:chessboard_four_classes_boundary}, this occurs on the dark blue and orange, the orange and red, the red and light blue, and the light blue and dark blue boundaries. If the highest three predicted probabilities are the same, the point lies at the intersection of the decision boundaries of three classes, for example where the orange, red, and dark blue classes meet. Finally, if all of the predicted probabilities are the same, then the point lies at the intersection of all four of decision boundaries. Note that although the model which learnt the Fig. \ref{fig:chessboard_four_classes_boundary} boundaries does not have a point like this, this is still relevant, since this can occur in other models and other datasets with a large number of classes. In particular, this is important to mention since entropy (Eq. \ref{eq:entropy}), information content (Eq. \ref{eq:information_content}), and probability gaps (Eq. \ref{eq:probability_gap}) differ in how they approach these scenarios. Note that in the discussion below, logits and predicted probabilities are sometimes used interchangeable, but in a way logical way.
 
-\begin{figure}
+\begin{figure}[h]
     \centering
     \includegraphics[width=1.0\textwidth]{images/chessboard_four_classes_comparison.png}
     \caption{Loss, entropy, information content, probability gaps. A continuation from the Fig. \ref{fig:chessboard_four_classes_boundary} example.}
@@ -754,6 +752,7 @@ Table \ref{tab:two_class_chessboard_agreement_matrix} shows the agreement matrix
 \begin{table}
     \centering
     \caption{Pairwise agreement matrix between the three uncertainty measures for the binary case. Each value represents the fraction of points where both methods agree on which points have high uncertainty or low uncertainty.}
+    \vspace{5pt}
     \begin{tabular}{|c|c|c|c|}
         \hline
          & \textbf{Entropy} & \textbf{Information Content} & \textbf{Probability Gaps} \\ 
@@ -777,6 +776,7 @@ This example follows the same 16-class dataset shown in the rightmost plot in Fi
 \begin{table}
     \centering
     \caption{Pairwise agreement matrix between the three uncertainty measures for the multi-class case. Each value represents the fraction of points where both methods agree on which points have high uncertainty or low uncertainty.}
+    \vspace{5pt}
     \begin{tabular}{|c|c|c|c|}
         \hline
          & \textbf{Entropy} & \textbf{Information Content} & \textbf{Probability Gaps} \\ 
@@ -810,6 +810,7 @@ Information content and probability gaps do disagree and this is illustrated in 
 \begin{table}[ht]
     \centering
     \caption{Pairwise agreement matrix between the three uncertainty measures ImageNet. Each value represents the fraction of points where both methods agree on which points have high uncertainty or low uncertainty.}
+    \vspace{5pt}
     \begin{tabular}{|c|c|c|c|}
         \hline
          & \textbf{Entropy} & \textbf{Information Content} & \textbf{Probability Gaps} \\ 
@@ -841,6 +842,7 @@ The results of this approach for all uncertainty measures is reported in Table \
 \renewcommand{\arraystretch}{1.4}
 \begin{table}
     \caption{Model accuracy after abstention with $\alpha=0.1$ on low(high)-uncertainty points. The highest performance is bolded.}
+    \vspace{5pt}
     \resizebox{\textwidth}{!}{
     \begin{tabular}{|c|c|c|c|c|c|c|}
         \hline
@@ -967,6 +969,7 @@ This case study, uses \texttt{BalancedRandomForestClassifier} from Imbalanced-Le
 \begin{table}
     \centering
     \caption{Performance results of misclassification prediction of a meta-learner $h$.}
+    \vspace{5pt}
     \begin{tabular}{|c|c|c|c|c|}
         \hline
          & \textbf{Accuracy} & \textbf{Recall} & \textbf{Precision} & \textbf{\# Positive (Negative)} \\ 
@@ -1023,6 +1026,12 @@ An interesting extension is to explore the multi-label image detection problem. 
 Overall, the current work provides a computationally-low and easy to implement procedure for isolating uncertainty regions where a model's predictions are likely to be erroneous. The benefits of this include abstention of uncertain points, helping make machine learning models more reliable and trustworthy as well as abstaining on points which may be adversarial. For example, the proposed methodology may help in abstaining from predictions on examples similar to the one shown in Figure \ref{fig:stop} where the control can be given back to the driver. Promising results in Chapter \ref{case:misclassification_prediction} have shown that these uncertainty regions can also be learnt by a meta-learner, helping practitioners understand the capabilities of their models, particularly in difficult domains where high performance is almost impossible. We hope that this work serves as a foundation for future research in isolating regions of uncertainty and helps contribute to deployment of safe, trustworthy, and reliable machine learning systems.
 
 
+\vfill
+\section*{Acknowledgements}
+
+First of all I would like to thank my partner Ashleigh for her support and patience throughout the many hours of testing and writing that went into this dissertation. I am deeply grateful Joerg Wicker for his guidance, encouragement, and consistent support. My sincere thanks to Tobias O. for providing invaluable ideas, feedback, and proofreading, particularly during the more challenging stages of this work. 
+
+I would also like to thank Andy and Matt for granting me the NIWA/Fisheries NZ scholarship, as well as Arnaud, Alan, Milan, and James for their support throughout this process. Finally, I with to express my gratitude to the countless friends and colleagues who contributed their time, discussions, and working ideas towards this dissertation. I am very grateful to you all. Thank you.
 
 		
 			
